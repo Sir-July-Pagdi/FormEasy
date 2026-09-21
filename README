@@ -1,1 +1,103 @@
+# FormEasy
 
+A DepEd form-filling tool. Currently supports **SF9** (Learner's Report Card) for Grade 11/12,
+Academic/TechPro tracks. SF10 (Form 137) is planned — the "Select Form" screen already has a
+slot for it.
+
+## What it does
+
+1. **Select Form** → SF9 (SF10 coming soon)
+2. **Template** → pick the exact grade/track SF9 variant
+3. **Subjects & Electives** → for every elective slot, choose the real DepEd cluster + subject
+   (pulled from the official HELPER sheet catalog — 5 Academic clusters / 80 subjects,
+   11 TechPro clusters / 49 subjects)
+4. **Class Setup** → auto-filled from the uploaded template's own INPUT DATA sheet
+5. **Roster** → one CSV upload (LRN, Name, DOB, Sex) — becomes the master learner list
+6. **Grades, Attendance & Remarks**
+   - Grades CSV: LRN, Name, then Term 1/2/3 for every configured subject
+   - Attendance CSV: LRN, Name, then 11 monthly columns (Jun–Apr)
+   - Remarks & Comments: set per learner, per term, via a preset dropdown (62 canned
+     comments in English and Filipino — independent lists, not paired translations) or
+     free text
+7. **Preview & Download** → tap any learner for an instant, pixel-accurate live preview of
+   their two-page report card, then download as PDF (individually if ≤5 selected, or as one
+   ZIP if more)
+
+Age is computed automatically from DOB, as of **October 31 of the school year's first year**
+(e.g. school year "2026-2027" → age as of Oct 31, 2026).
+
+## Why the report card looks exactly like the real SF9
+
+The `data/layout/*.json` files are not hand-designed — they were extracted directly from the
+real DepEd SF9 templates using `openpyxl` (column widths, row heights, per-cell fonts, borders,
+alignment, merged ranges, and the exact pixel position of the embedded school/DepEd logos, all
+converted from Excel's native units into browser pixels). `js/renderer.js` replays that data as
+absolutely-positioned HTML, and `js/app.js` only overwrites the specific cells that hold
+per-student data (name, LRN, grades, etc.) — everything else on the page is the original
+template's content and styling, untouched.
+
+## Running it locally
+
+Browsers block `fetch()` of local JSON/image files under the `file://` protocol, so you need to
+serve this over HTTP — you can't just double-click `index.html`.
+
+```bash
+# from the project folder:
+python3 -m http.server 8080
+# or:
+npx serve .
+```
+
+Then open `http://localhost:8080`.
+
+## Deploying
+
+This is a fully static site (no build step, no backend) — it deploys as-is to GitHub Pages,
+Netlify, Vercel, or any static host. For GitHub Pages:
+
+```bash
+git init
+git add .
+git commit -m "FormEasy v1.0.0"
+git remote add origin <your-repo-url>
+git push -u origin main
+```
+
+Then enable GitHub Pages on the repo (Settings → Pages → deploy from `main` branch, root).
+
+## Project structure
+
+```
+index.html              Entry point
+css/style.css           All styling (Montserrat self-hosted via @font-face)
+js/config.js            Template definitions, cell bindings, data loaders, age calculation
+js/renderer.js          Generic Excel-layout-spec → pixel-accurate HTML renderer
+js/app.js               Application state, UI wiring, CSV parsing, PDF/ZIP generation
+data/electives_catalog.json    Official Academic/TechPro elective clusters & subjects
+data/remarks_catalog.json      62 preset remarks (English + Filipino, independent lists)
+data/layout/*.json             Extracted per-template pixel/font/border/image layouts
+assets/images/                 Logo images extracted from the official templates
+assets/fonts/                  Montserrat static weights (400/500/600/700/800)
+assets/templates/*.xlsx        The 4 source SF9 templates (read at runtime for
+                                pre-filling Class Setup; not otherwise modified)
+```
+
+## Known limitations / things to verify before real use
+
+- **Female roster row offsets** on the SF9 print layout were measured directly from the
+  templates and cross-checked across all 4 variants, but please verify against a real class
+  with female learners before trusting it for an actual report card run.
+- **CDN dependencies**: JSZip, html2canvas, and jsPDF load from cdnjs. The app's own logic
+  works fully offline once loaded, but the very first load (and any load in a fresh browser
+  cache) needs internet access to fetch these three scripts.
+- The **General Average** calculation is a units-weighted average of each subject's own
+  average of whatever terms have data — this matches the intent of the original template's
+  formulas but isn't a byte-for-byte formula replay (since the PDF is a static rendering, not
+  a live spreadsheet).
+- If DepEd revises SF9 templates, the JSON files under `data/layout/` will need to be
+  re-extracted from the new templates using the same technique (extractor script available on
+  request).
+
+## Credits
+
+Form Engine v1.0.0 — developed by **Sir_JPagdi**
