@@ -741,6 +741,13 @@ const PDFGEN = (function(){
       if(v.final !== '' && v.final != null) inCell(bold, v.final, C.final, r.top, r.bottom, BASE);
       if(v.remarks) inCell(reg, v.remarks, C.remarks, r.top, r.bottom, 7.6);
     });
+    // A subject printed on one of several rows (row has `pickOf`): its units belong to the chosen row,
+    // so cover the units printed on the header row and write them on the row that holds the grades.
+    Object.keys(d.rows).forEach(key => {
+      const r = spec.rows[key], parent = r && r.pickOf && spec.rows[r.pickOf]; if(!parent) return;
+      page.drawRectangle({ x:C.units[0] + 1, y:PH - (parent.bottom - 1), width:C.units[1] - C.units[0] - 2, height:(parent.bottom - parent.top) - 2, color:white });
+      if(r.units != null) inCell(bold, String(r.units), C.units, r.top, r.bottom, BASE);
+    });
     if(d.avg && spec.rows.avg){
       const r = spec.rows.avg;
       inCell(bold, d.avg.final, C.final, r.top, r.bottom, 9);
