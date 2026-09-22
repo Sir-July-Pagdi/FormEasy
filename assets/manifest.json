@@ -1,0 +1,16 @@
+{
+  "name": "FormEasy — Build in seconds. Collect with ease.",
+  "short_name": "FormEasy",
+  "description": "Turns a class roster and grades CSV into ready-to-print DepEd report cards.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1330",
+  "theme_color": "#0e1330",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
