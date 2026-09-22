@@ -510,30 +510,39 @@ const SETUP_FIELDS = {
   adviser:'F26', gradelevel:'F27', track:'F28', section:'F29'
 };
 
+/* Effective Communication and Mabisang Komunikasyon are graded, taught, and recorded as two
+ * separate subjects (own T1/T2/T3, Final, Remarks) but share ONE printed row on the SF9 (6 units,
+ * "effcomm"): printRow tells buildSF9Data() in app.js to average both subjects' figures onto that
+ * row instead of giving each its own. */
 const coreSubjectsG11 = [
-  {key:'effcomm', label:'Effective Communication /Mabisang Komunikasyon'},
+  {key:'effcomm_en', label:'Effective Communication', printRow:'effcomm'},
+  {key:'effcomm_fil', label:'Mabisang Komunikasyon', printRow:'effcomm'},
   {key:'genmath', label:'General Mathematics'},
   {key:'gensci', label:'General Science'},
   {key:'lifecareer', label:'Life and Career Skills'},
   {key:'pklp', label:'Pag-Aaral ng Kasaysayan at Lipunang Pilipino'},
 ];
 
+
+/* Elective caps for Academic templates that now use dynamic (+ / x) elective counts
+ * per term instead of a fixed list. TechPro keeps its fixed electiveSlots below. */
+const ACADEMIC_ELECTIVE_CAPS = {
+  g11_academic: { perTerm:[2,2,2], total:5,  defaultCounts:[1,1,1], labelStart:1, variantDir:'G11 Academic variant' },
+  g12_academic: { perTerm:[7,7,4], total:17, defaultCounts:[4,4,4], labelStart:4, variantDir:'G12 Academic variant' },
+};
+const ACADEMIC_TERM_COL = { 1:'F', 2:'G', 3:'H' };
+
 const TEMPLATES = [
   {
     id:'g11_academic', label:'Grade 11 — Academic', grade:'11', track:'Academic',
     color:'var(--purple)', icon:'11A', desc:'Core subjects + 1 elective per term.',
     coreSubjects: coreSubjectsG11,
-    electiveSlots:[
-      {key:'elec_t1', group:'Electives', termLabel:'Term 1 Elective', category:'academic'},
-      {key:'elec_t2', group:'Electives', termLabel:'Term 2 Elective', category:'academic'},
-      {key:'elec_t3', group:'Electives', termLabel:'Term 3 Elective', category:'academic'},
-    ],
+    electiveSlots:[],  /* dynamic — see ACADEMIC_ELECTIVE_CAPS + electiveSlotsFor() in app.js */
     bindings: {
       header: {name:'C17', age:'I17', sex:'K17', lrn:'C18', grade:'I18', section:'K18', track:'E19'},
       subjectRows: {
-        effcomm:{row:33,cols:['F','G','H']}, genmath:{row:36,cols:['F','G','H']}, gensci:{row:37,cols:['F','G','H']},
+        effcomm_en:{row:33,cols:['F','G','H']}, effcomm_fil:{row:33,cols:['F','G','H']}, genmath:{row:36,cols:['F','G','H']}, gensci:{row:37,cols:['F','G','H']},
         lifecareer:{row:38,cols:['F','G','H']}, pklp:{row:39,cols:['F','G','H']},
-        elec_t1:{row:41,cols:['F']}, elec_t2:{row:42,cols:['G']}, elec_t3:{row:43,cols:['H']},
       },
       avgRow:44,
     }
@@ -548,7 +557,7 @@ const TEMPLATES = [
     bindings: {
       header: {name:'C17', age:'I17', sex:'K17', lrn:'C18', grade:'I18', section:'K18', track:'E19'},
       subjectRows: {
-        effcomm:{row:33,cols:['F','G','H']}, genmath:{row:36,cols:['F','G','H']}, gensci:{row:37,cols:['F','G','H']},
+        effcomm_en:{row:33,cols:['F','G','H']}, effcomm_fil:{row:33,cols:['F','G','H']}, genmath:{row:36,cols:['F','G','H']}, gensci:{row:37,cols:['F','G','H']},
         lifecareer:{row:38,cols:['F','G','H']}, pklp:{row:39,cols:['F','G','H']},
         elec_all:{row:41,cols:['F','G','H']},
       },
@@ -559,27 +568,11 @@ const TEMPLATES = [
     id:'g12_academic', label:'Grade 12 — Academic', grade:'12', track:'Academic',
     color:'var(--teal)', icon:'12A', desc:'Up to 12 electives across the three terms.',
     coreSubjects:[],
-    electiveSlots:[
-      {key:'e4', group:'Term 1', termLabel:'Term 1 — Elective A', category:'academic'},
-      {key:'e5', group:'Term 1', termLabel:'Term 1 — Elective B', category:'academic'},
-      {key:'e6', group:'Term 1', termLabel:'Term 1 — Elective C', category:'academic'},
-      {key:'e7', group:'Term 1', termLabel:'Term 1 — Elective D', category:'academic'},
-      {key:'e8', group:'Term 2', termLabel:'Term 2 — Elective A', category:'academic'},
-      {key:'e9', group:'Term 2', termLabel:'Term 2 — Elective B', category:'academic'},
-      {key:'e10', group:'Term 2', termLabel:'Term 2 — Elective C', category:'academic'},
-      {key:'e11', group:'Term 2', termLabel:'Term 2 — Elective D', category:'academic'},
-      {key:'e12', group:'Term 3', termLabel:'Term 3 — Elective A', category:'academic'},
-      {key:'e13', group:'Term 3', termLabel:'Term 3 — Elective B', category:'academic'},
-      {key:'e14', group:'Term 3', termLabel:'Term 3 — Elective C', category:'academic'},
-      {key:'e15', group:'Term 3', termLabel:'Term 3 — Elective D', category:'academic'},
-    ],
+    electiveSlots:[],  /* dynamic — see ACADEMIC_ELECTIVE_CAPS + electiveSlotsFor() in app.js */
     bindings: {
       header: {name:'C16', age:'I16', sex:'K16', lrn:'C17', grade:'I17', section:'K17', track:'E18'},
       subjectRows: {
-        e4:{row:32,cols:['F']}, e5:{row:33,cols:['F']}, e6:{row:34,cols:['F']}, e7:{row:35,cols:['F']},
-        e8:{row:36,cols:['G']}, e9:{row:37,cols:['G']}, e10:{row:38,cols:['G']}, e11:{row:39,cols:['G']},
-        e12:{row:40,cols:['H']}, e13:{row:41,cols:['H']}, e14:{row:42,cols:['H']}, e15:{row:43,cols:['H']},
-      },
+      },  /* elective rows (e4..e20) are dynamic — see electiveSlotsFor() in app.js */
       avgRow:44,
     }
   },
@@ -649,25 +642,40 @@ const PDFGEN = (function(){
   const cache = {};
   const looksLikePdf = u8 => u8 && u8.length > 8 && u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46;
 
-  async function loadTemplate(tid){
-    if(cache[tid]) return cache[tid];
+  /** variant (optional): { tag, pdfUrl, jsonUrl } from app.js's variantFor() — a pre-generated Academic
+   *  elective-count layout that lives in its own "<Grade> Academic variant" folder next to this page.
+   *  Variants are never embedded in this file (there are hundreds), so they only work when this copy of
+   *  FormEasy is fetched over http(s) with that folder actually hosted alongside it. */
+  async function loadTemplate(tid, variant){
+    const key = variant ? tid + '#' + variant.tag : tid;
+    if(cache[key]) return cache[key];
     let bytes = null, spec = null, source = 'built-in';
+    const pdfPath = variant ? variant.pdfUrl : 'templates/' + tid + '.pdf';
+    const jsonPath = variant ? variant.jsonUrl : 'templates/' + tid + '.json';
     if(location.protocol === 'http:' || location.protocol === 'https:'){
       try{
         const [pr, jr] = await Promise.all([
-          fetch('templates/' + tid + '.pdf', { cache:'no-cache' }),
-          fetch('templates/' + tid + '.json', { cache:'no-cache' }),
+          fetch(pdfPath, { cache:'no-cache' }),
+          fetch(jsonPath, { cache:'no-cache' }),
         ]);
         if(pr.ok && jr.ok){
           const u8 = new Uint8Array(await pr.arrayBuffer()), sp = await jr.json();
-          if(looksLikePdf(u8) && sp && sp.rows && sp.fields){ bytes = u8; spec = sp; source = 'repo'; }
+          if(looksLikePdf(u8) && sp && sp.rows && sp.fields){ bytes = u8; spec = sp; source = variant ? 'variant' : 'repo'; }
         }
-      }catch(e){ /* fall back to the built-in copy */ }
+      }catch(e){ /* fall back to the built-in copy below, unless this was a variant request */ }
+    }
+    if(!bytes && variant){
+      throw new Error('This elective combination needs ' + pdfPath + ', which isn’t hosted with this copy of FormEasy. '
+        + 'It can only be generated when FormEasy is opened from the web address that serves the "' + variant.tag
+        + '" template folder, not as a local file.');
     }
     if(!bytes){ bytes = b64(DATA.pdfs[tid]); spec = DATA.specs[tid]; }
-    return (cache[tid] = { bytes, spec, source });
+    return (cache[key] = { bytes, spec, source });
   }
-  function specFor(tid){ return cache[tid] ? cache[tid].spec : DATA.specs[tid]; }
+  function specFor(tid, variant){
+    const key = variant ? tid + '#' + variant.tag : tid;
+    return cache[key] ? cache[key].spec : DATA.specs[tid];
+  }
 
   async function embedFonts(pdf){
     pdf.registerFontkit(fontkit);
@@ -740,6 +748,11 @@ const PDFGEN = (function(){
       ['t1', 't2', 't3'].forEach(k => { if(v[k] !== '' && v[k] != null) inCell(reg, v[k], C[k], r.top, r.bottom, BASE); });
       if(v.final !== '' && v.final != null) inCell(bold, v.final, C.final, r.top, r.bottom, BASE);
       if(v.remarks) inCell(reg, v.remarks, C.remarks, r.top, r.bottom, 7.6);
+      if(v.units != null){
+        // cover first: the base (non-variant) template may still have the original static count baked in
+        page.drawRectangle({ x:C.units[0] + 1, y:PH - (r.bottom - 1), width:C.units[1] - C.units[0] - 2, height:(r.bottom - r.top) - 2, color:white });
+        inCell(bold, String(v.units), C.units, r.top, r.bottom, BASE);
+      }
     });
     // A subject printed on one of several rows (row has `pickOf`): its units belong to the chosen row,
     // so cover the units printed on the header row and write them on the row that holds the grades.
@@ -752,6 +765,10 @@ const PDFGEN = (function(){
       const r = spec.rows.avg;
       inCell(bold, d.avg.final, C.final, r.top, r.bottom, 9);
       inCell(bold, d.avg.remarks, C.remarks, r.top, r.bottom, 8);
+      if(d.avg.units != null){
+        page.drawRectangle({ x:C.units[0] + 1, y:PH - (r.bottom - 1), width:C.units[1] - C.units[0] - 2, height:(r.bottom - r.top) - 2, color:white });
+        inCell(bold, String(d.avg.units), C.units, r.top, r.bottom, 9);
+      }
     }
 
     /* ---------- BACK: attendance ---------- */
@@ -789,9 +806,10 @@ const PDFGEN = (function(){
 
   }
 
-  /** d = data from buildSF9Data(); returns one filled PDF as Uint8Array. */
-  async function fill(tid, d){
-    const { bytes, spec } = await loadTemplate(tid);
+  /** d = data from buildSF9Data(); variant = the elective-count layout to use (see loadTemplate).
+   *  Returns one filled PDF as Uint8Array. */
+  async function fill(tid, d, variant){
+    const { bytes, spec } = await loadTemplate(tid, variant);
     const pdf = await PDFLib.PDFDocument.load(bytes.slice());
     const { reg, bold } = await embedFonts(pdf);
     draw(pdf.getPages()[0], spec, d, reg, bold);
@@ -819,9 +837,9 @@ const PDFGEN = (function(){
 
   /** One PDF for any number of learners. The blank form and the fonts are embedded once and shared.
    *  layout 'a5' gives two pages per learner (front, then back); 'a4' one landscape page; 'orig' the school's sheet. */
-  async function fillMany(tid, list, onProgress, layout){
+  async function fillMany(tid, list, onProgress, layout, variant){
     layout = layout || 'orig';
-    const { bytes, spec } = await loadTemplate(tid);
+    const { bytes, spec } = await loadTemplate(tid, variant);
     const out = await PDFLib.PDFDocument.create();
     const { reg, bold } = await embedFonts(out);
     const [form] = await out.embedPdf(bytes.slice(), [0]);
@@ -881,6 +899,7 @@ function freshState(){
     tplId: null,           // template id from TEMPLATES
     core: [],              // enabled core subject keys
     slots: {},             // elective slot key -> {enabled, cluster, subject}
+    electiveCounts: {},     // Academic templates only: tplId -> [t1,t2,t3] elective counts
     setup: null,           // Class Setup field values
     picks: {},             // core subjects printed on one of several rows: key -> chosen row key
     setupEdited: false,    // true once the teacher changes a Class Setup field
@@ -902,6 +921,61 @@ function freshState(){
 let S = freshState();
 const tplOf = () => TEMPLATES.find(t => t.id === S.tplId) || null;
 const isSelected = lrn => S.selected.includes(lrn);
+
+/* ============ Dynamic Academic electives (add/remove per term, within caps) ============ */
+function sanitizeCounts(counts, caps){
+  const c = [0, 1, 2].map(i => Math.max(0, Math.min(caps.perTerm[i], Math.round(Number(counts[i]) || 0))));
+  let total = c[0] + c[1] + c[2];
+  while(total > caps.total){ const i = [0, 1, 2].reduce((a, b) => c[b] > c[a] ? b : a, 0); if(c[i] === 0) break; c[i]--; total--; }
+  return c;
+}
+function countsFor(t, state){
+  const caps = ACADEMIC_ELECTIVE_CAPS[t.id]; if(!caps) return null;
+  state = state || S;
+  return (state.electiveCounts && state.electiveCounts[t.id]) || caps.defaultCounts.slice();
+}
+/** Fixed TechPro slots pass through unchanged; Academic templates build e{labelStart..} from the counts. */
+function electiveSlotsFor(t, state){
+  const caps = ACADEMIC_ELECTIVE_CAPS[t.id];
+  if(!caps) return t.electiveSlots;
+  const counts = countsFor(t, state), slots = []; let n = caps.labelStart;
+  [1, 2, 3].forEach(term => {
+    for(let i = 0; i < counts[term - 1]; i++){
+      slots.push({ key:'e' + n, group:'Term ' + term, termLabel:'Term ' + term + ' \u2014 Elective ' + String.fromCharCode(65 + i),
+                   category:'academic', term, col:ACADEMIC_TERM_COL[term] });
+      n++;
+    }
+  });
+  return slots;
+}
+function electiveTag(counts){ return counts.join('-'); }
+function canAddElective(t, term){
+  const caps = ACADEMIC_ELECTIVE_CAPS[t.id]; if(!caps) return false;
+  const counts = countsFor(t);
+  return counts[term - 1] < caps.perTerm[term - 1] && counts.reduce((a, b) => a + b, 0) < caps.total;
+}
+function setElectiveCount(t, term, delta){
+  const caps = ACADEMIC_ELECTIVE_CAPS[t.id]; if(!caps) return;
+  const counts = countsFor(t).slice();
+  counts[term - 1] = Math.max(0, counts[term - 1] + delta);
+  S.electiveCounts[t.id] = sanitizeCounts(counts, caps);
+  const newSlots = electiveSlotsFor(t), next = {}, old = S.slots;
+  newSlots.forEach(sl => { next[sl.key] = old[sl.key] || { enabled:true, cluster:'', subject:'', units:null }; });
+  S.slots = next;
+  S.grades = null; S.gradesFile = ''; S.gradesSig = '';
+  renderSubjectPickPanel(); updateProgress(); schedulePreview(); save();
+}
+/** The Academic PDF/JSON to load: the base (built-in) template when counts are at their prescribed
+ *  default, otherwise the matching pre-generated variant fetched from its "<Grade> Academic variant"
+ *  folder next to this page. Returns null for non-Academic (or unhosted) templates. */
+function variantFor(t){
+  const caps = ACADEMIC_ELECTIVE_CAPS[t.id]; if(!caps) return null;
+  const counts = countsFor(t), tag = electiveTag(counts);
+  if(tag === electiveTag(caps.defaultCounts)) return null;
+  const dir = encodeURIComponent(caps.variantDir);
+  return { tag, pdfUrl: 'templates/' + dir + '/' + t.id + '_' + tag + '.pdf', jsonUrl: 'templates/' + dir + '/' + t.id + '_' + tag + '.json' };
+}
+
 
 /* ============ IndexedDB persistence ============ */
 const Store = {
@@ -985,18 +1059,24 @@ function hydrate(saved){
   if(!next.remarks || typeof next.remarks !== 'object') next.remarks = {};
   const t = TEMPLATES.find(x => x.id === next.tplId);
   if(t){
+    const caps = ACADEMIC_ELECTIVE_CAPS[t.id];
+    if(caps){
+      const c0 = (next.electiveCounts && next.electiveCounts[t.id]) || caps.defaultCounts;
+      next.electiveCounts = { [t.id]: sanitizeCounts(c0, caps) };
+    } else next.electiveCounts = {};
     const old = next.slots || {};
     next.slots = {};
-    t.electiveSlots.forEach(s => {
+    electiveSlotsFor(t, next).forEach(s => {
       const c = old[s.key] || {};
       const cluster = (ELECTIVES_CATALOG[s.category] || []).find(cl => cl.cluster === c.cluster);
       const subject = cluster && cluster.subjects.some(x => x.name === c.subject) ? c.subject : '';
-      next.slots[s.key] = { enabled: !!c.enabled, cluster: cluster ? cluster.cluster : '', subject };
+      const subj = subject && cluster.subjects.find(x => x.name === subject);
+      next.slots[s.key] = { enabled: caps ? true : !!c.enabled, cluster: cluster ? cluster.cluster : '', subject, units: subj ? subj.units : null };
     });
     const coreKeys = t.coreSubjects.map(s => s.key);
     next.core = (Array.isArray(next.core) ? next.core : coreKeys).filter(k => coreKeys.includes(k));
     if(!next.setup) next.setup = Object.assign({}, DATA.setupDefaults[t.id]);
-  } else { next.slots = {}; next.core = []; }
+  } else { next.slots = {}; next.core = []; next.electiveCounts = {}; }
   if(!PANEL_ORDER.includes(next.panel)) next.panel = 'sfselect';
   if(next.preview && !next.roster.some(r => r.lrn === next.preview)) next.preview = null;
   S = next;
@@ -1117,9 +1197,11 @@ function selectTemplate(id){
   if(S.tplId !== id){
     const hadGrades = !!S.grades;
     S.tplId = id;
+    const caps = ACADEMIC_ELECTIVE_CAPS[id];
+    S.electiveCounts = caps ? { [id]: caps.defaultCounts.slice() } : {};
     S.core = t.coreSubjects.map(s => s.key);
     S.slots = {};
-    t.electiveSlots.forEach(s => { S.slots[s.key] = { enabled:false, cluster:'', subject:'' }; });
+    electiveSlotsFor(t).forEach(s => { S.slots[s.key] = { enabled: !caps, cluster:'', subject:'', units:null }; });
     S.grades = null; S.gradesFile = ''; S.gradesSig = ''; S.picks = {};
     if(!S.setup || !S.setupEdited) S.setup = Object.assign({}, DATA.setupDefaults[id]);
     if(hadGrades) toast('Grades were cleared because they belong to the previous template’s subjects. Upload the grades CSV again.', { ms: 9000 });
@@ -1127,7 +1209,7 @@ function selectTemplate(id){
   renderTemplateGrid();
   $('brandSub').textContent = t.label;
   renderSubjectPickPanel();
-  PDFGEN.loadTemplate(t.id).then(() => { if(S.tplId === t.id) renderSubjectPickPanel(); }).catch(() => {});   // the site's own JSON may add/alter row choices fillSetupInputs(); renderGradesStatus();
+  PDFGEN.loadTemplate(t.id, variantFor(t)).then(() => { if(S.tplId === t.id) renderSubjectPickPanel(); }).catch(() => {});   // the site's own JSON may add/alter row choices fillSetupInputs(); renderGradesStatus();
   syncNav(); showPanel(S.panel, { silent:true });
   updateProgress(); save();
 }
@@ -1150,6 +1232,31 @@ function slotCardHTML(s){
     <select class="subject-select" aria-label="${esc(s.termLabel)} subject" ${c.enabled && c.cluster ? '' : 'disabled'}>${subjectOptionsHTML(s.category, c.cluster, c.subject)}</select>
   </div>`;
 }
+/** Academic dynamic slot: no on/off checkbox (existing = wanted); an x button removes it instead. */
+function academicSlotCardHTML(s){
+  const c = S.slots[s.key] || { cluster:'', subject:'' };
+  const clusters = ['<option value="">Choose cluster…</option>'].concat(
+    ELECTIVES_CATALOG[s.category].map(cl => `<option value="${esc(cl.cluster)}"${cl.cluster === c.cluster ? ' selected' : ''}>${esc(cl.cluster)}</option>`)).join('');
+  return `<div class="slot-card" data-key="${s.key}">
+    <div class="slot-label">${esc(s.termLabel)}</div>
+    <select class="cluster-select" aria-label="${esc(s.termLabel)} cluster">${clusters}</select>
+    <select class="subject-select" aria-label="${esc(s.termLabel)} subject" ${c.cluster ? '' : 'disabled'}>${subjectOptionsHTML(s.category, c.cluster, c.subject)}</select>
+    <button type="button" class="pill secondary remove-elective" data-remove="${esc(s.key)}" data-term="${s.term}" aria-label="Remove ${esc(s.termLabel)}">&times;</button>
+  </div>`;
+}
+function academicElectiveGroupsHTML(t, caps){
+  const counts = countsFor(t), total = counts[0] + counts[1] + counts[2];
+  const byTerm = { 1:[], 2:[], 3:[] };
+  electiveSlotsFor(t).forEach(s => byTerm[s.term].push(s));
+  const groups = [1, 2, 3].map(term => {
+    const atCap = !canAddElective(t, term);
+    return `<div class="elective-group"><div class="elective-group-title">Term ${term} Electives (${counts[term - 1]} of ${caps.perTerm[term - 1]})</div>
+      ${byTerm[term].map(academicSlotCardHTML).join('')}
+      <button type="button" class="pill secondary add-elective" data-term="${term}" ${atCap ? 'disabled' : ''}>+ Add elective</button>
+    </div>`;
+  }).join('');
+  return groups + `<div class="callout info"><strong>${total} of ${caps.total} electives used</strong> (up to ${caps.perTerm.join(' / ')} per term for Terms 1/2/3).</div>`;
+}
 /** A core subject can be printed on one of several rows (spec row has `pick: [rowKeys]`). Returns the chosen row key. */
 function pickFor(key, spec){
   const r = spec && spec.rows && spec.rows[key];
@@ -1159,7 +1266,7 @@ function pickFor(key, spec){
 function renderSubjectPickPanel(){
   const t = tplOf();
   if(!t){ $('coreSubjectsBlock').innerHTML = ''; $('electiveSlotsBlock').innerHTML = ''; return; }
-  const spec = PDFGEN.specFor(t.id);
+  const spec = PDFGEN.specFor(t.id, variantFor(t));
   const coreItem = s => {
     const r = spec.rows && spec.rows[s.key];
     if(!(r && r.pick)) return `<div class="core-chip"><span class="dot"></span>${esc(s.label)}</div>`;
@@ -1173,10 +1280,15 @@ function renderSubjectPickPanel(){
   $('coreSubjectsBlock').innerHTML = t.coreSubjects.length
     ? `<div class="elective-group-title">Core Subjects (DepEd-fixed)</div><div class="core-chip-row">${t.coreSubjects.map(coreItem).join('')}</div>`
     : '';
-  const groups = {};
-  t.electiveSlots.forEach(s => (groups[s.group] = groups[s.group] || []).push(s));
-  $('electiveSlotsBlock').innerHTML = Object.entries(groups).map(([name, slots]) =>
-    `<div class="elective-group"><div class="elective-group-title">${esc(name)}</div>${slots.map(slotCardHTML).join('')}</div>`).join('');
+  const caps = ACADEMIC_ELECTIVE_CAPS[t.id];
+  if(caps){
+    $('electiveSlotsBlock').innerHTML = academicElectiveGroupsHTML(t, caps);
+  } else {
+    const groups = {};
+    t.electiveSlots.forEach(s => (groups[s.group] = groups[s.group] || []).push(s));
+    $('electiveSlotsBlock').innerHTML = Object.entries(groups).map(([name, slots]) =>
+      `<div class="elective-group"><div class="elective-group-title">${esc(name)}</div>${slots.map(slotCardHTML).join('')}</div>`).join('');
+  }
 }
 $('coreSubjectsBlock').addEventListener('change', e => {
   const key = e.target.dataset && e.target.dataset.pick; if(!key) return;
@@ -1185,6 +1297,11 @@ $('coreSubjectsBlock').addEventListener('change', e => {
 (function bindSlotEvents(){
   const block = $('electiveSlotsBlock');
   block.addEventListener('click', e => {
+    const t = tplOf(); if(!t) return;
+    const addBtn = e.target.closest('.add-elective');
+    if(addBtn && !addBtn.disabled){ setElectiveCount(t, +addBtn.dataset.term, 1); return; }
+    const rmBtn = e.target.closest('.remove-elective');
+    if(rmBtn){ setElectiveCount(t, +rmBtn.dataset.term, -1); return; }
     const cb = e.target.closest('.cb'); if(!cb) return;
     const card = cb.closest('.slot-card'), key = card.dataset.key, c = S.slots[key];
     c.enabled = !c.enabled;
@@ -1196,22 +1313,30 @@ $('coreSubjectsBlock').addEventListener('change', e => {
   });
   block.addEventListener('change', e => {
     const card = e.target.closest('.slot-card'); if(!card) return;
-    const key = card.dataset.key, c = S.slots[key], slot = tplOf().electiveSlots.find(s => s.key === key);
+    const t = tplOf(), key = card.dataset.key, c = S.slots[key], slot = electiveSlotsFor(t).find(s => s.key === key);
     const subjSel = card.querySelector('.subject-select');
     if(e.target.classList.contains('cluster-select')){
-      c.cluster = e.target.value; c.subject = '';
+      c.cluster = e.target.value; c.subject = ''; c.units = null;
       subjSel.innerHTML = subjectOptionsHTML(slot.category, c.cluster, '');
       subjSel.disabled = !c.cluster;
     } else if(e.target.classList.contains('subject-select')){
       c.subject = e.target.value;
+      const cluster = (ELECTIVES_CATALOG[slot.category] || []).find(cl => cl.cluster === c.cluster);
+      const subj = cluster && cluster.subjects.find(x => x.name === c.subject);
+      c.units = subj ? subj.units : null;
     }
-    updateProgress(); save();
+    updateProgress(); schedulePreview(); save();
   });
 })();
 function activeSubjects(){
   const t = tplOf(); if(!t) return [];
+  const caps = ACADEMIC_ELECTIVE_CAPS[t.id];
   const list = t.coreSubjects.filter(s => S.core.includes(s.key)).map(s => ({ key:s.key, label:s.label }));
-  t.electiveSlots.forEach(s => { const c = S.slots[s.key]; if(c && c.enabled && c.subject) list.push({ key:s.key, label:c.subject }); });
+  electiveSlotsFor(t).forEach(s => {
+    const c = S.slots[s.key]; if(!c || !c.subject) return;
+    if(!caps && !c.enabled) return;
+    list.push({ key:s.key, label:c.subject, term:s.term, col:s.col, units:c.units });
+  });
   return list;
 }
 const subjectSig = () => activeSubjects().map(s => s.key + ':' + s.label).join('|');
@@ -1532,28 +1657,51 @@ const passFail = v => v >= 75 ? 'Passed' : 'Failed';
 
 /* ============ What gets written onto the PDF ============ */
 function buildSF9Data(student, spec){
-  const t = tplOf(), b = t.bindings, setup = S.setup || {};
+  const t = tplOf(), b = t.bindings, setup = S.setup || {}, caps = ACADEMIC_ELECTIVE_CAPS[t.id];
   const d = {
     header: { name:student.name, lrn:student.lrn, age:String(computeAge(student.dob, setup.sy)), sex:student.sex === 'F' ? 'Female' : 'Male',
               grade:t.grade, section:setup.section || '', track:t.track },
     head: setup.head || '', adviser: setup.adviser || '', rows: {}, avg: null, remarks: {},
   };
   let sumF = 0, sumU = 0;
+  /* Subjects sharing one printed row (Effective Communication + Mabisang Komunikasyon -> 'effcomm'):
+   * gather each one's grades here first, then merge into a single row further down. */
+  const combined = {};
   activeSubjects().forEach(subj => {
-    const rb = b.subjectRows[subj.key]; if(!rb) return;
-    const isCore = t.coreSubjects.some(cs => cs.key === subj.key);
-    const row = { label: isCore ? null : subj.label, t1:'', t2:'', t3:'', final:'', remarks:'' };
-    const target = pickFor(subj.key, spec);   // the row this subject's grades are printed on
-    rb.cols.forEach(col => { const n = { F:1, G:2, H:3 }[col]; row['t' + n] = gradeFor(student.lrn, subj.key, n); });
-    const final = finalGradeFor(student.lrn, subj.key, rb.cols);
-    if(final !== null){
-      row.final = final; row.remarks = passFail(final);
-      const u = (spec.rows[subj.key] && spec.rows[subj.key].units) || 1;
-      sumF += final * u; sumU += u;
+    const coreDef = t.coreSubjects.find(cs => cs.key === subj.key);
+    const isCore = !!coreDef;
+    const cols = isCore ? (b.subjectRows[subj.key] && b.subjectRows[subj.key].cols) : (caps ? [subj.col] : (b.subjectRows[subj.key] && b.subjectRows[subj.key].cols));
+    if(!cols) return;
+    const grades = cols.map(col => { const n = { F:1, G:2, H:3 }[col]; return gradeFor(student.lrn, subj.key, n); });
+    const final = finalGradeFor(student.lrn, subj.key, cols);
+    if(isCore && coreDef.printRow){
+      const agg = combined[coreDef.printRow] = combined[coreDef.printRow] || { terms:[[], [], []], finals:[] };
+      grades.forEach((v, i) => { const n = parseFloat(v); if(!isNaN(n)) agg.terms[i].push(n); });
+      if(final !== null) agg.finals.push(final);
+      return;   // no row of its own — folded into the combined row below
+    }
+    const target = isCore ? subj.key : pickFor(subj.key, spec);   // electives never use `pick`
+    const row = { label: isCore ? null : subj.label, t1:'', t2:'', t3:'', final:'', remarks:'', units:null };
+    cols.forEach((col, i) => { const n = { F:1, G:2, H:3 }[col]; row['t' + n] = grades[i]; });
+    const u = isCore ? ((spec.rows[subj.key] && spec.rows[subj.key].units) || 1) : (subj.units || 3);
+    if(!isCore) row.units = u;
+    if(final !== null){ row.final = final; row.remarks = passFail(final); sumF += final * u; sumU += u; }
+    d.rows[target] = row;
+  });
+  Object.entries(combined).forEach(([target, agg]) => {
+    const row = { label:null, t1:'', t2:'', t3:'', final:'', remarks:'', units:null };
+    const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const termAvgs = agg.terms.map(avg);
+    ['t1', 't2', 't3'].forEach((k, i) => { if(termAvgs[i] !== null) row[k] = Math.round(termAvgs[i]); });
+    const finAvg = avg(agg.finals) !== null ? avg(agg.finals) : avg(termAvgs.filter(v => v !== null));
+    if(finAvg !== null){
+      const g = Math.round(finAvg); row.final = g; row.remarks = passFail(g);
+      const u = (spec.rows[target] && spec.rows[target].units) || 1;
+      sumF += g * u; sumU += u;
     }
     d.rows[target] = row;
   });
-  if(sumU > 0){ const g = Math.round(sumF / sumU); d.avg = { final:g, remarks:passFail(g) }; }
+  if(sumU > 0){ const g = Math.round(sumF / sumU); d.avg = { final:g, remarks:passFail(g), units:sumU }; }
   // attendance: present comes from the CSV, school days from the Data panel, absent is the difference
   const present = ((S.attendance && S.attendance[student.lrn]) || []).concat(Array(11).fill('')).slice(0, 11), days = S.classDays.slice();
   const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
@@ -1565,15 +1713,15 @@ function buildSF9Data(student, spec){
 }
 async function buildStudentPDF(student){
   if(!(window.PDFLib && window.fontkit)) throw new Error('The PDF tools didn’t load. Refresh the page and try again.');
-  const t = tplOf(), tpl = await PDFGEN.loadTemplate(t.id);
-  return PDFGEN.fill(t.id, buildSF9Data(student, tpl.spec));
+  const t = tplOf(), v = variantFor(t), tpl = await PDFGEN.loadTemplate(t.id, v);
+  return PDFGEN.fill(t.id, buildSF9Data(student, tpl.spec), v);
 }
 
 /** The file that gets downloaded (page layout chosen in the Download panel). The preview always shows the whole sheet. */
 async function buildDownloadPDF(student){
   if(!(window.PDFLib && window.fontkit)) throw new Error('The PDF tools didn’t load. Refresh the page and try again.');
-  const t = tplOf(), tpl = await PDFGEN.loadTemplate(t.id);
-  return PDFGEN.fillMany(t.id, [buildSF9Data(student, tpl.spec)], null, S.pageMode);
+  const t = tplOf(), v = variantFor(t), tpl = await PDFGEN.loadTemplate(t.id, v);
+  return PDFGEN.fillMany(t.id, [buildSF9Data(student, tpl.spec)], null, S.pageMode, v);
 }
 
 /* ============ Live preview (the real PDF, drawn to a canvas) ============ */
@@ -1587,7 +1735,7 @@ async function doPreview(lrn, token){
   const pane = $('previewPane'), student = S.roster.find(s => s.lrn === lrn), t = tplOf();
   if(!student || !t){ pane.innerHTML = '<div class="preview-empty">Tap a learner on the left to preview their report card.</div>'; return; }
   try{
-    const tpl = await PDFGEN.loadTemplate(t.id), bytes = await buildStudentPDF(student);
+    const tpl = await PDFGEN.loadTemplate(t.id, variantFor(t)), bytes = await buildStudentPDF(student);
     if(token !== previewToken) return;
     if(!pane.querySelector('canvas')) pane.innerHTML = '<canvas class="pv-canvas" aria-label="Report card preview"></canvas><div class="pv-note" id="pvNote"></div>';
     await PDFGEN.renderToCanvas(bytes, pane.querySelector('canvas'), pane.clientWidth - 40);
@@ -1625,9 +1773,9 @@ $('generateBtn').addEventListener('click', async () => {
     } else if(S.dlMode === 'merged'){
       if(!(window.PDFLib && window.fontkit)) throw new Error('The PDF tools didn’t load. Refresh the page and try again.');
       btn.textContent = 'Generating…'; await nextFrame();
-      const t = tplOf(), tpl = await PDFGEN.loadTemplate(t.id);
+      const t = tplOf(), v = variantFor(t), tpl = await PDFGEN.loadTemplate(t.id, v);
       const list = chosen.map(s => buildSF9Data(s, tpl.spec));
-      const bytes = await PDFGEN.fillMany(t.id, list, async i => { btn.textContent = `Generating ${i}/${chosen.length}…`; await nextFrame(); }, S.pageMode);
+      const bytes = await PDFGEN.fillMany(t.id, list, async i => { btn.textContent = `Generating ${i}/${chosen.length}…`; await nextFrame(); }, S.pageMode, v);
       await saveFile(filePrefix() + '_Merged_' + chosen.length + '_learners.pdf', new Blob([bytes], { type:'application/pdf' }));
       warn.innerHTML = `<div class="callout info"><strong>Saved.</strong> One PDF with ${chosen.length} report cards, in roster order.${printTip()}</div>`;
     } else {
