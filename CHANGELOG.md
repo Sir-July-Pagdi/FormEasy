@@ -1,4 +1,4 @@
-#Changelog
+# Changelog
 
 All notable changes to FormEasy are documented in this file.
 
@@ -11,20 +11,20 @@ The project uses the following version history:
 
 [1.0.0] — Current Release
 
-Overview
+# Overview
 
 Version 1.0.0 is the first major revision of FormEasy after the original v0.0.0 implementation.
 
 The core purpose remains the same: provide a browser-based tool for preparing and generating DepEd Senior High School SF9 Learner’s Report Cards.
 
-Application Architecture
+# Application Architecture
 
 * Consolidated the application into the current single-file index.html implementation.
 * Moved away from the original multi-file runtime structure documented in v0.0.0.
 * Kept the application suitable for static hosting.
 * Retained the SF9 template-driven rendering approach.
 
-SF9 Support
+# SF9 Support
 
 * Continued support for:
     * Grade 11 Academic
@@ -44,7 +44,7 @@ SF9 Support
     * PDF generation
     * ZIP generation
 
-Local Workspace Persistence
+# Local Workspace Persistence
 
 * Added IndexedDB persistence for the current FormEasy workspace.
 * Added persistence for the application’s current state, including:
@@ -62,7 +62,7 @@ Local Workspace Persistence
 * Added a function to clear the saved local workspace.
 * Workspace persistence remains local to the browser/device and does not provide cloud synchronization.
 
-Typography
+# Typography
 
 * Replaced the previous Bookman-style report-card font mapping with EB Garamond.
 
