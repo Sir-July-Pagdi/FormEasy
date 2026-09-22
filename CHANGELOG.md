@@ -1,56 +1,205 @@
-# Changelog
+##Changelog
 
-All notable FormEasy documentation and implementation milestones are recorded here.
+All notable changes to FormEasy are documented in this file.
 
-## [v1.0.0] — Current consolidated implementation
+The project uses the following version history:
 
-### Added
+* v0.0.0 — original FormEasy implementation and documented baseline
+* v1.0.0 — current major release
 
-- Consolidated the FormEasy README around the current SF9 workflow.
-- Documented support for Grade 11 and Grade 12 Academic and TechPro SF9 templates.
-- Documented the end-to-end workflow: form selection, template selection, subject configuration, class setup, roster import, grades, attendance, remarks, preview, and export.
-- Documented CSV expectations for roster, grades, and attendance imports.
-- Added links to the fictional SF9 sample data pack and explained how to use it.
-- Documented the static browser architecture, local HTTP-server requirement, deployment options, project structure, and CDN dependencies.
-- Added explicit versioning guidance and a limitations section for operational review.
-- Created this changelog to make the project transition auditable.
+⸻
 
-### Current implementation
+[1.0.0] — Current Release
 
-- Supports SF9 (Learner's Report Card) for four variants:
-  - Grade 11 — Academic
-  - Grade 11 — TechPro
-  - Grade 12 — Academic
-  - Grade 12 — TechPro
-- Supports DepEd Academic and TechPro elective catalogs.
-- Imports roster, grades, and June–April attendance data from CSV files.
-- Provides preset English and Filipino remarks plus free-text comments.
-- Renders template-derived, two-page report-card previews in the browser.
-- Exports individual PDFs for small selections and a ZIP for larger selections.
-- Calculates age as of October 31 in the first year of the school year.
+Overview
 
-### Notes
+Version 1.0.0 is the first major revision of FormEasy after the original v0.0.0 implementation.
 
-- SF10 (Form 137) remains planned and is not included in v1.0.0.
-- The General Average uses a units-weighted calculation based on each subject's available-term average.
-- The female learner row offsets and generated output should be verified against actual school data before operational use.
-- Source template changes from DepEd require corresponding layout-data updates.
+The core purpose remains the same: provide a browser-based tool for preparing and generating DepEd Senior High School SF9 Learner’s Report Cards.
 
-## [v0.0.0] — Original README/project baseline
+Application Architecture
 
-The v0.0.0 baseline is the original README and project description. It established FormEasy as a DepEd SF9 form-filling tool and described the initial implementation, including:
+* Consolidated the application into the current single-file index.html implementation.
+* Moved away from the original multi-file runtime structure documented in v0.0.0.
+* Kept the application suitable for static hosting.
+* Retained the SF9 template-driven rendering approach.
 
-- SF9 support for Grade 11 and Grade 12 Academic and TechPro tracks.
-- The planned SF10 slot in the form-selection screen.
-- Template-derived pixel-accurate rendering using extracted layout JSON data.
-- CSV-based roster, grades, and attendance workflows.
-- Per-learner remarks and comments.
-- Browser preview and PDF/ZIP export.
-- Local HTTP serving and static-host deployment instructions.
-- The initial project structure and known limitations.
+SF9 Support
 
-## Transition from v0.0.0 to v1.0.0
+* Continued support for:
+    * Grade 11 Academic
+    * Grade 11 TechPro
+    * Grade 12 Academic
+    * Grade 12 TechPro
+* Retained the existing SF9 workflow for:
+    * form selection
+    * template selection
+    * subjects and electives
+    * class setup
+    * roster
+    * grades
+    * attendance
+    * remarks and comments
+    * preview
+    * PDF generation
+    * ZIP generation
 
-v1.0.0 is a consolidation and documentation milestone rather than a claim that every planned form is complete. The current SF9 implementation remains the product scope; the principal change is that the README now presents the implementation as a coherent, versioned workflow and makes its input formats, deployment model, limitations, sample data, and operational cautions explicit.
+Local Workspace Persistence
 
-No SF10 functionality is added by this transition. Existing SF9 behavior should be treated as the v1.0.0 implementation baseline.
+* Added IndexedDB persistence for the current FormEasy workspace.
+* Added persistence for the application’s current state, including:
+    * selected form
+    * selected template
+    * class setup
+    * subject/elective configuration
+    * roster
+    * grades
+    * attendance
+    * remarks
+    * selected learners
+    * preview state
+* Added restoration of the saved workspace when the application is reopened.
+* Added a function to clear the saved local workspace.
+* Workspace persistence remains local to the browser/device and does not provide cloud synchronization.
+
+Typography
+
+* Replaced the previous Bookman-style report-card font mapping with EB Garamond.
+
+Data Input
+
+* Continued CSV-based roster, grade, and attendance workflows.
+* Retained monthly attendance support from June through April.
+* Retained term-based grade input.
+* Retained preset English and Filipino remarks together with free-text remarks.
+
+Age Calculation
+
+* Retained automatic age calculation based on the learner’s DOB.
+* The reference date is October 31 of the first calendar year of the school year.
+
+Sample Data
+
+* Added the current SF9 Sample Data repository package.
+* Included sample datasets for testing the supported SF9 variants.
+* Sample learners are fictional and intended only for testing.
+
+Repository Documentation
+
+* Reworked the root README to document the current v1.0.0 architecture and workflow.
+* Added this changelog to distinguish the original v0.0.0 baseline from the v1.0.0 implementation.
+
+⸻
+
+[0.0.0] — Original Baseline
+
+Version 0.0.0 represents the original FormEasy implementation as documented by the project’s previous README.
+
+Initial Form Support
+
+* Introduced FormEasy as a DepEd form-filling tool.
+* Supported SF9 — Learner’s Report Card.
+* Supported Grade 11 and Grade 12.
+* Supported Academic and TechPro tracks.
+* Reserved a planned slot for future SF10/Form 137 support.
+
+Original Workflow
+
+Established the original workflow:
+
+1. Select Form
+2. Select Template
+3. Subjects & Electives
+4. Class Setup
+5. Roster
+6. Grades
+7. Attendance
+8. Remarks & Comments
+9. Preview
+10. Download
+
+Template-Based Rendering
+
+* Established the template-driven SF9 rendering approach.
+* Used layout information extracted from the source DepEd SF9 templates.
+* Preserved template geometry, formatting, borders, alignment, merged ranges, and embedded logos/images.
+* Used the extracted layout information to produce a pixel-oriented browser rendering.
+
+CSV Import
+
+Established CSV-based data import for:
+
+* learner roster
+* grades
+* attendance
+
+The original documented roster fields were:
+
+* LRN
+* Name
+* DOB
+* Sex
+
+The original documented attendance period was June through April.
+
+Subjects and Electives
+
+* Introduced the Academic and TechPro elective catalog.
+* Supported configuration of elective slots through the application’s subject-selection workflow.
+* Used the official HELPER-sheet-derived catalog described in the original README.
+
+Remarks
+
+* Introduced preset remarks/comments.
+* Included English and Filipino comment lists.
+* Supported free-text remarks.
+
+PDF and ZIP Output
+
+* Introduced browser-based PDF generation.
+* Supported individual PDF downloads.
+* Supported packaging multiple generated report cards into a ZIP.
+
+Original Project Structure
+
+The original implementation used a multi-file static application structure containing separate:
+
+* HTML
+* CSS
+* JavaScript
+* JSON data
+* image assets
+* font assets
+* source XLSX templates
+
+The original README documented files such as:
+
+* css/style.css
+* js/config.js
+* js/renderer.js
+* js/app.js
+* data/electives_catalog.json
+* data/remarks_catalog.json
+* data/layout/*.json
+* assets/images/
+* assets/fonts/
+* assets/templates/*.xlsx
+
+Original Limitations
+
+The original README documented limitations and verification requirements including:
+
+* female roster row offsets requiring verification against real classes
+* CDN dependencies
+* General Average calculation behavior
+* the need to re-extract layout information if DepEd revised the SF9 templates
+
+⸻
+
+Versioning Note
+
+v0.0.0 is the historical baseline.
+
+v1.0.0 represents the current FormEasy implementation.
+
+Future changes should be recorded under a new version rather than modifying the historical v0.0.0 entry.
