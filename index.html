@@ -724,6 +724,30 @@ const PDFGEN = (function(){
     onLine(reg, h.age, F.age, BASE, 5.5);       onLine(reg, h.sex, F.sex, BASE, 5.5);
     onLine(reg, h.grade, F.grade, BASE, 5.5);   onLine(reg, h.section, F.section, BASE, 5.5);
     onLine(reg, h.track, F.track, BASE, 5.5);
+    /* ---------- FRONT: "Dear Parents" intro, reflowed ----------
+     * The template hard-breaks this into fixed lines (from the original spreadsheet's own row
+     * layout), which leaves each line far short of the printed width — e.g. line 1 stops at "...and
+     * achievement" with the row's remaining ~80pt left blank, so "in the different learning areas."
+     * drops to its own line at the far left margin. Covering it and re-wrapping to the true printed
+     * width (same margins pdf-lib already knows from spec.cols) fills each line properly instead.
+     * Drawn — and its cover rectangle sized — before the School Head / Adviser names below it, so
+     * those names always land on top regardless of exactly where this block's bottom edge falls. */
+    {
+      const left = spec.cols.label[0], right = spec.cols.remarks[1], indent = 43, iSize = 7.45, iLh = 9.8;
+      const iTop = spec.fields.track.y + 11.5, coverTop = spec.fields.track.y + 4;
+      const coverBottom = Math.min(spec.sign.head.y, spec.sign.adviser.y) - 2;   // just short of the signature underline
+      page.drawRectangle({ x:0, y:PH - coverBottom, width:right + 10, height:coverBottom - coverTop, color:white });
+      put(reg, 'Dear Parents,', left, iTop, iSize);
+      let iy = iTop + iLh;
+      [
+        "This Performance Report presents your child's progress and achievement in the different learning areas.",
+        "The school welcomes you to reach out should you wish to know more about your child's learning and performance.",
+      ].forEach(text => {
+        wrap(reg, text, iSize, right - (left + indent), right - left).forEach((l, i) => {
+          put(reg, l, i === 0 ? left + indent : left, iy, iSize); iy += iLh;
+        });
+      });
+    }
     onLine(bold, d.head, spec.sign.head, BASE, 5.5);
     onLine(bold, d.adviser, spec.sign.adviser, BASE, 5.5);
 
