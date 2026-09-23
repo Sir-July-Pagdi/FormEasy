@@ -70,6 +70,17 @@ Remarks entry — but printed as three rows on the form:
 `icon-192.png` and `icon-512.png` inside an `assets/` folder next to it. Keep those in place so
 "Add to Home Screen" picks up the FormEasy mark instead of a generic icon.
 
+## Spreadsheet CSV Editor
+
+Added an in-app Excel-style CSV editor for Roster, Grades Summary, and Attendance Summary data.
+
+- Edit existing or imported data
+- Paste from Excel, Numbers, or Google Sheets
+- Edit cells, drag-fill, resize, insert/delete rows and columns
+- Undo/redo and context menu
+- Import and download CSV
+- Transfer edited data directly back into FormEasy
+
 ## Development notes
 
 - `config.js` — template metadata and the cell bindings measured from each SF9 workbook.
