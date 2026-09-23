@@ -1743,12 +1743,26 @@ function buildSF9Data(student, spec){
     const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
     const termAvgs = agg.terms.map(avg);
     ['t1', 't2', 't3'].forEach((k, i) => { if(termAvgs[i] !== null) row[k] = Math.round(termAvgs[i]); });
-    const finAvg = avg(agg.finals) !== null ? avg(agg.finals) : avg(termAvgs.filter(v => v !== null));
+
+    const finAvg = avg(agg.finals) !== null
+      ? avg(agg.finals)
+      : avg(termAvgs.filter(v => v !== null));
+
+    // Effective Communication + Mabisang Komunikasyon = 6 units
+    const u = target === 'effcomm'
+      ? 6
+      : ((spec.rows[target] && spec.rows[target].units) || 1);
+
+    row.units = u;
+
     if(finAvg !== null){
-      const g = Math.round(finAvg); row.final = g; row.remarks = passFail(g);
-      const u = (spec.rows[target] && spec.rows[target].units) || 1;
-      sumF += g * u; sumU += u;
+      const g = Math.round(finAvg);
+      row.final = g;
+      row.remarks = passFail(g);
+      sumF += g * u;
+      sumU += u;
     }
+
     d.rows[target] = row;
   });
   if(sumU > 0){ const g = Math.round(sumF / sumU); d.avg = { final:g, remarks:passFail(g), units:sumU }; }
