@@ -802,7 +802,7 @@ const PDFGEN = (function(){
   const save = pdf => pdf.save({ useObjectStreams: false });   // classic xref: opens everywhere
 
   /** Writes one learner's data onto `page` (a page that already shows the blank form). */
-  function draw(page, spec, d, reg, bold, cursive){
+  function draw(page, spec, d, reg, bold, cursive, tid){
     const PH = spec.h;
     const BASE = 8.3;   // printed labels on the form are 7.6 pt Bookman
     const black = PDFLib.rgb(0, 0, 0), white = PDFLib.rgb(1, 1, 1);
@@ -960,6 +960,32 @@ const PDFGEN = (function(){
       }
     });
 
+    /* ---------- BACK: certificate statement reflow ----------
+     * The source SF9 templates break this sentence differently across variants. Cover only the
+     * original two-line text block, then redraw it with the requested fixed reflow:
+     *   Line 1: This is to certify that the above-named learner has satisfactorily completed the requirements for the
+     *   Line 2: grade level indicated.
+     * Coordinates are matched to each built-in template so the statement stays on the original form. */
+    {
+      const certTop = {
+        g11_academic: 341.2,
+        g11_techpro: 336.6,
+        g12_academic: 324.2,
+        g12_techpro: 330.8,
+      }[tid];
+      if(certTop != null){
+        const x = spec.comments.x0 + 0.8, right = spec.comments.x1 - 2;
+        const lines = [
+          'This is to certify that the above-named learner has satisfactorily completed the requirements for the',
+          'grade level indicated.',
+        ];
+        const s = fit(reg, lines[0], right - x, 7.8, 7.3), lh = 15.7;
+        const coverTop = certTop - 3, coverBottom = certTop + lh + 9.5;
+        page.drawRectangle({ x: x - 5.5, y: PH - coverBottom, width: right - x + 9.5, height: coverBottom - coverTop, color:white });
+        lines.forEach((line, i) => put(reg, line, x, certTop + i * lh, s));
+      }
+    }
+
     /* ---------- BACK: "Approved" names ---------- */
     onLine(bold, d.adviser, spec.bsign.adviser, BASE, 5.5);
     onLine(bold, d.head, spec.bsign.head, BASE, 5.5);
@@ -972,7 +998,7 @@ const PDFGEN = (function(){
     const { bytes, spec } = await loadTemplate(tid, variant);
     const pdf = await PDFLib.PDFDocument.load(bytes.slice());
     const { reg, bold, cursive } = await embedFonts(pdf);
-    draw(pdf.getPages()[0], spec, d, reg, bold, cursive);
+    draw(pdf.getPages()[0], spec, d, reg, bold, cursive, tid);
     return await save(pdf);
   }
 
@@ -1008,7 +1034,7 @@ const PDFGEN = (function(){
       for(const half of (layout === 'a5' ? [0, 1] : [0])){
         const page = out.addPage(size);
         openForm(page, form, spec, layout, half);
-        draw(page, spec, list[i], reg, bold, cursive);
+        draw(page, spec, list[i], reg, bold, cursive, tid);
         closeForm(page);
       }
       if(onProgress) await onProgress(i + 1);
