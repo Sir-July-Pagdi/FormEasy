@@ -802,10 +802,18 @@ const PDFGEN = (function(){
     // (Obsolete "pick one of several rows" mechanism — effcomm_en/effcomm_fil now always print their
     // own T1/T2/T3 and never carry a units value, so this only fires if some future row asks for it.)
     Object.keys(d.rows).forEach(key => {
-      const r = spec.rows[key], parent = r && r.pickOf && spec.rows[r.pickOf]; if(!parent || r.units == null) return;
-      page.drawRectangle({ x:C.units[0] + 1, y:PH - (parent.bottom - 1), width:C.units[1] - C.units[0] - 2, height:(parent.bottom - parent.top) - 2, color:white });
-      inCell(bold, String(r.units), C.units, r.top, r.bottom, BASE);
-    });
+  const r = spec.rows[key], parent = r && r.pickOf && spec.rows[r.pickOf];
+  if(!parent || r.units == null || r.pickOf === 'effcomm') return;
+
+  page.drawRectangle({
+    x:C.units[0] + 1,
+    y:PH - (parent.bottom - 1),
+    width:C.units[1] - C.units[0] - 2,
+    height:(parent.bottom - parent.top) - 2,
+    color:white
+  });
+  inCell(bold, String(r.units), C.units, r.top, r.bottom, BASE);
+});
     if(d.avg && spec.rows.avg){
       const r = spec.rows.avg;
       inCell(bold, d.avg.final, C.final, r.top, r.bottom, 9);
