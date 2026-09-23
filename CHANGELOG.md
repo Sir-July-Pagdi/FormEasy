@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.0
+
+**Spreadsheet CSV Editor**
+- In-app Excel-style CSV editor for Roster, Grades, and Attendance.
+- Editing of existing and imported FormEasy data.
+- Paste, drag-fill, resize, row/column operations, undo/redo, and context menu.
+- CSV import/export.
+- Direct transfer of edited data back into FormEasy.
+- Updated CSV controls to Transfer / Edit your data for a clearer workflow.
+
 ## v1.1.0
 
 **Dynamic Academic electives (G11/G12)**
