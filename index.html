@@ -506,10 +506,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       <div class="remarks-panel">
         <h4>&#128172; Remarks &amp; Comments (per learner, per term)</h4>
-        <div class="callout info" style="margin-bottom:14px;">Pick a learner below, then set each term's remark — choose a preset (English or Filipino) or type your own. Each change is saved as you go.</div>
+        <div class="callout info" style="margin-bottom:14px;">FormEasy calculates a suggested remark for each term from the learner's unrounded term average. The suggestion is only a starting point — choose a preset or type your own remark before downloading.</div>
         <div class="field">
           <label for="remarksLearnerSelect">Learner</label>
           <select id="remarksLearnerSelect"><option value="">Choose a learner…</option></select>
+        </div>
+        <div class="field">
+          <label>Default suggestion language</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="pill secondary remark-lang-btn" data-lang="English" id="remarkLangEnglish">English</button>
+            <button type="button" class="pill secondary remark-lang-btn" data-lang="Filipino" id="remarkLangFilipino">Filipino</button>
+          </div>
+          <div class="hint" style="margin-top:6px;">This changes only automatic suggestions. It does not overwrite remarks you have already chosen.</div>
         </div>
         <div id="remarksTermInputs"></div>
       </div>
@@ -1064,6 +1072,7 @@ function freshState(){
     dlMode: 'zip',         // 'zip' = one PDF per learner in a ZIP, 'merged' = one PDF with every learner
     classDays: Array(11).fill(''),   // school days per month (Jun-Apr), same for the whole class
     remarks: {},           // lrn -> {t1:{lang,preset,custom}, t2, t3}
+    remarkSuggestionLang: 'English', // default language for automatic suggestions
     selected: [],          // LRNs ticked for download
     preview: null,         // LRN shown in the preview pane
     panel: 'sfselect',
@@ -1208,6 +1217,7 @@ function hydrate(saved){
   if(next.pageMode !== 'a5' && next.pageMode !== 'a4') next.pageMode = 'a5';
   if(!Array.isArray(next.classDays) || next.classDays.length !== 11) next.classDays = Array(11).fill('');
   if(!next.remarks || typeof next.remarks !== 'object') next.remarks = {};
+  if(next.remarkSuggestionLang !== 'English' && next.remarkSuggestionLang !== 'Filipino') next.remarkSuggestionLang = 'English';
   const t = TEMPLATES.find(x => x.id === next.tplId);
   if(t){
     const caps = ACADEMIC_ELECTIVE_CAPS[t.id];
@@ -1301,7 +1311,8 @@ function showPanel(name, opts){
     nextBtn.onclick = () => showPanel(nxt);
   } else nextBtn.style.display = 'none';
   if(name === 'preview'){ renderRosterList(); renderPreview(S.preview); }
-  if(name === 'data'){ refreshRemarksLearnerSelect(); renderGradesStatus(); }
+  if(name === 'data'){ refreshRemarksLearnerSelect();
+refreshRemarkLanguageButtons(); renderGradesStatus(); }
   if(!opts.silent){ window.scrollTo(0, 0); save(); }
 }
 navBtns.forEach(b => b.addEventListener('click', () => { if(!b.disabled) showPanel(b.dataset.panel); }));
@@ -1910,20 +1921,72 @@ function refreshRemarksLearnerSelect(){
   if(S.roster.some(s => s.lrn === current)) sel.value = current; else $('remarksTermInputs').innerHTML = '';
 }
 $('remarksLearnerSelect').addEventListener('change', e => renderRemarksTermInputs(e.target.value));
+function refreshRemarkLanguageButtons(){
+  document.querySelectorAll('.remark-lang-btn').forEach(btn => {
+    const active = btn.dataset.lang === S.remarkSuggestionLang;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
 function ensureRemarksRecord(lrn){
   if(!S.remarks[lrn]) S.remarks[lrn] = { t1:{lang:'English',preset:'',custom:''}, t2:{lang:'English',preset:'',custom:''}, t3:{lang:'English',preset:'',custom:''} };
   return S.remarks[lrn];
 }
+function remarkIndexForAverage(avg){
+  if(avg == null || !isFinite(avg)) return null;
+  // Comment 1 for >97, comment 62 for <75; 75..97 maps to comments 2..61.
+  const step = (97 - 75) / 59;
+  if(avg > 97) return 0;
+  if(avg < 75) return 61;
+  return Math.max(1, Math.min(60, 1 + Math.round((97 - avg) / step)));
+}
+function calculateRemarkSuggestions(lrn){
+  const student = S.roster.find(s => s.lrn === lrn), t = tplOf();
+  if(!student || !t) return { averages:{}, indexes:{} };
+  const b = t.bindings, caps = ACADEMIC_ELECTIVE_CAPS[t.id], spec = DATA.specs[t.id] || {};
+  const sumF = [0,0,0], sumU = [0,0,0], combined = {};
+  activeSubjects().forEach(subj => {
+    const coreDef = t.coreSubjects.find(cs => cs.key === subj.key), isCore = !!coreDef;
+    const cols = isCore ? (b.subjectRows[subj.key] && b.subjectRows[subj.key].cols) : (caps ? [subj.col] : (b.subjectRows[subj.key] && b.subjectRows[subj.key].cols));
+    if(!cols) return;
+    const grades = cols.map(col => gradeFor(lrn, subj.key, {F:1,G:2,H:3}[col]));
+    if(isCore && coreDef.printRow){
+      const agg = combined[coreDef.printRow] = combined[coreDef.printRow] || { terms:[[],[],[]] };
+      grades.forEach((v,i) => { const n=parseFloat(v); if(!isNaN(n)) agg.terms[i].push(n); });
+      return;
+    }
+    const u = isCore ? ((spec.rows && spec.rows[subj.key] && spec.rows[subj.key].units) || 1) : (subj.units || 3);
+    grades.forEach((v,i) => { const n=parseFloat(v); if(!isNaN(n)){ sumF[i] += n*u; sumU[i] += u; } });
+  });
+  Object.entries(combined).forEach(([target, agg]) => {
+    const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+    const termAvgs = agg.terms.map(avg);
+    const u = target === 'effcomm' ? 6 : ((spec.rows && spec.rows[target] && spec.rows[target].units) || 1);
+    termAvgs.forEach((v,i) => { if(v !== null){ sumF[i] += v*u; sumU[i] += u; } });
+  });
+  const averages = {}, indexes = {};
+  for(let i=0;i<3;i++){
+    if(sumU[i]){ averages[i+1] = sumF[i]/sumU[i]; indexes[i+1] = remarkIndexForAverage(averages[i+1]); }
+  }
+  return { averages, indexes };
+}
+function suggestedRemarkFor(lrn, term){
+  const idx = calculateRemarkSuggestions(lrn).indexes[term];
+  if(idx == null) return '';
+  const list = REMARKS_CATALOG[S.remarkSuggestionLang] || [];
+  return list[idx] || '';
+}
 function renderRemarksTermInputs(lrn){
   const wrap = $('remarksTermInputs');
   if(!lrn){ wrap.innerHTML = ''; return; }
-  const rec = ensureRemarksRecord(lrn);
+  const rec = ensureRemarksRecord(lrn), suggestions = calculateRemarkSuggestions(lrn);
   wrap.innerHTML = [1,2,3].map(t => {
-    const term = rec['t' + t], list = REMARKS_CATALOG[term.lang] || [];
+    const term = rec['t' + t], list = REMARKS_CATALOG[term.lang] || [], suggested = suggestedRemarkFor(lrn,t), avg = suggestions.averages[t];
     const options = ['<option value="">— Custom —</option>'].concat(
-      list.map((p, i) => `<option value="${i}" ${String(i) === term.preset ? 'selected' : ''}>${esc(p.slice(0, 70))}${p.length > 70 ? '…' : ''}</option>`)).join('');
+      list.map((p,i) => `<option value="${i}" ${String(i) === term.preset ? 'selected' : ''}>${esc(p.slice(0,70))}${p.length > 70 ? '…' : ''}</option>`)).join('');
     return `<div class="remarks-term-row" data-term="${t}">
       <label>Term ${t}</label>
+      <div style="grid-column:2/-1;font-size:12px;line-height:1.45;color:var(--ink-soft);margin-bottom:2px;"><strong>Suggested:</strong> ${esc(suggested || 'No suggestion — enter a remark manually.')}${avg != null ? ` <span style="opacity:.75;">(term average: ${avg.toFixed(2)})</span>` : ''}</div>
       <select class="rm-lang" aria-label="Term ${t} language"><option ${term.lang === 'English' ? 'selected' : ''}>English</option><option ${term.lang === 'Filipino' ? 'selected' : ''}>Filipino</option></select>
       <select class="rm-preset" aria-label="Term ${t} preset remark">${options}</select>
       <input type="text" class="rm-custom" aria-label="Term ${t} custom remark" placeholder="Type custom remark…" ${term.preset !== '' ? 'hidden' : ''} value="${esc(term.custom)}">
@@ -1932,25 +1995,38 @@ function renderRemarksTermInputs(lrn){
   wrap.querySelectorAll('.remarks-term-row').forEach(row => {
     const t = row.dataset.term, langSel = row.querySelector('.rm-lang'), presetSel = row.querySelector('.rm-preset'), customInp = row.querySelector('.rm-custom');
     langSel.addEventListener('change', () => {
-      rec['t' + t].lang = langSel.value; rec['t' + t].preset = ''; rec['t' + t].custom = '';
+      rec['t'+t].lang = langSel.value; rec['t'+t].preset = ''; rec['t'+t].custom = '';
       renderRemarksTermInputs(lrn); if(S.preview === lrn) schedulePreview(); save();
     });
     presetSel.addEventListener('change', () => {
-      rec['t' + t].preset = presetSel.value;
+      rec['t'+t].preset = presetSel.value;
       customInp.hidden = presetSel.value !== '';
       if(S.preview === lrn) schedulePreview(); save();
     });
     customInp.addEventListener('input', () => {
-      rec['t' + t].custom = customInp.value;
+      rec['t'+t].custom = customInp.value;
       if(S.preview === lrn) schedulePreview(); save();
     });
   });
 }
-function remarkTextFor(lrn, term){
+document.querySelectorAll('.remark-lang-btn').forEach(btn => btn.addEventListener('click', () => {
+  S.remarkSuggestionLang = btn.dataset.lang;
+  refreshRemarkLanguageButtons();
+  const lrn = $('remarksLearnerSelect').value;
+  if(lrn) renderRemarksTermInputs(lrn);
+  if(lrn && S.preview === lrn) schedulePreview();
+  save();
+}));
+function remarkTextFor(lrn, term, suggestionIndexes){
   const rec = S.remarks[lrn], t = rec && rec['t' + term];
-  if(!t) return '';
-  if(t.preset !== ''){ const list = REMARKS_CATALOG[t.lang] || []; return list[parseInt(t.preset, 10)] || ''; }
-  return t.custom || '';
+  if(t){
+    if(t.preset !== ''){ const list = REMARKS_CATALOG[t.lang] || []; return list[parseInt(t.preset,10)] || ''; }
+    if(t.custom) return t.custom;
+  }
+  const idx = suggestionIndexes && suggestionIndexes[term];
+  if(idx == null) return '';
+  const list = REMARKS_CATALOG[S.remarkSuggestionLang] || [];
+  return list[idx] || '';
 }
 
 /* ============ Progress ============ */
@@ -2044,6 +2120,8 @@ function buildSF9Data(student, spec){
     head: setup.head || '', adviser: setup.adviser || '', rows: {}, avg: null, remarks: {},
   };
   let sumF = 0, sumU = 0;
+  // Separate raw term averages for automatic remarks; existing General Average logic is untouched.
+  const commentSumF = [0, 0, 0], commentSumU = [0, 0, 0];
   /* Subjects sharing one printed row (Effective Communication + Mabisang Komunikasyon -> 'effcomm'):
    * gather each one's grades here first, then merge into a single row further down. */
   const combined = {};
@@ -2069,6 +2147,7 @@ function buildSF9Data(student, spec){
     const row = { label: isCore ? null : subj.label, t1:'', t2:'', t3:'', final:'', remarks:'', units:null };
     cols.forEach((col, i) => { const n = { F:1, G:2, H:3 }[col]; row['t' + n] = grades[i]; });
     const u = isCore ? ((spec.rows[subj.key] && spec.rows[subj.key].units) || 1) : (subj.units || 3);
+    grades.forEach((v, i) => { const n = parseFloat(v); if(!isNaN(n)){ commentSumF[i] += n * u; commentSumU[i] += u; } });
     if(!isCore) row.units = u;
     if(final !== null){ row.final = final; row.remarks = passFail(final); sumF += final * u; sumU += u; }
     d.rows[target] = row;
@@ -2089,6 +2168,7 @@ function buildSF9Data(student, spec){
       : ((spec.rows[target] && spec.rows[target].units) || 1);
 
     row.units = u;
+    termAvgs.forEach((v, i) => { if(v !== null){ commentSumF[i] += v * u; commentSumU[i] += u; } });
 
     if(finAvg !== null){
       const g = Math.round(finAvg);
@@ -2107,7 +2187,15 @@ function buildSF9Data(student, spec){
   const absent = present.map((p, i) => { const a = num(days[i]), c = num(p); return a != null && c != null ? String(Math.max(0, a - c)) : ''; });
   const sum = arr => { let s = 0, any = false; arr.forEach(v => { const n = num(v); if(n != null){ s += n; any = true; } }); return any ? String(s) : ''; };
   d.att = { days, present, absent, totals:{ days:sum(days), present:sum(present), absent:sum(absent) } };
-  [1, 2, 3].forEach(n => { d.remarks['t' + n] = remarkTextFor(student.lrn, n); });
+  const suggestionIndexes = {};
+  const step = (97 - 75) / 59;
+  commentSumU.forEach((u, i) => {
+    if(!u) return;
+    const avg = commentSumF[i] / u;
+    suggestionIndexes[i + 1] = remarkIndexForAverage(avg);
+  });
+  d.remarkSuggestions = suggestionIndexes;
+  [1, 2, 3].forEach(n => { d.remarks['t' + n] = remarkTextFor(student.lrn, n, suggestionIndexes); });
   return d;
 }
 async function buildStudentPDF(student){
