@@ -66,9 +66,9 @@ Remarks entry — but printed as three rows on the form:
 
 ## App icon / Add to Home Screen
 
-`index.html` links `manifest.json` and the `icon-*.png` / `apple-touch-icon.png` /
-`favicon.ico` files in this folder. Keep them alongside `index.html` so "Add to Home Screen"
-picks up the FormEasy mark instead of a generic icon.
+`index.html` links `manifest.json` and expects `favicon.ico`, `apple-touch-icon.png`,
+`icon-192.png` and `icon-512.png` inside an `assets/` folder next to it. Keep those in place so
+"Add to Home Screen" picks up the FormEasy mark instead of a generic icon.
 
 ## Development notes
 

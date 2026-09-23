@@ -18,12 +18,19 @@
   Final Grade and Remarks left blank there). The combined row above them prints each term as
   the average of the two subjects, 6 Units, and a Final Grade/Remarks averaged from the two.
   Only the combined row counts toward General Average.
+- Fixed: an older "print on whichever row is chosen" step (from before these were split into
+  two always-printed rows) was still running and was blanking the combined row's own 6-Units
+  cell on every card. It now only acts when a row actually asks for it.
+- Fixed: the "Dear Parents" intro paragraph (reflowed to the printed width in this version)
+  could run into the School Head / Adviser names on templates with less room above them, such
+  as G12 Academic. It now shrinks slightly to fit whenever a template needs it to.
 
 **Branding**
 - New tagline: "Build in seconds. Collect with ease." (browser tab title and a short welcome
   panel on the Select a Form step explaining what FormEasy does).
 - Added a proper app icon: favicon, Apple touch icon, and a `manifest.json` with 192px/512px
-  icons so "Add to Home Screen" uses the FormEasy mark instead of a generic icon.
+  icons so "Add to Home Screen" uses the FormEasy mark instead of a generic icon. Icon files
+  live in `assets/`.
 - "Select a Form" step now mentions SF10 is on the way, alongside SF9.
 
 ## v1.0.0
