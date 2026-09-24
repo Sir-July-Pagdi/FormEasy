@@ -338,6 +338,39 @@ main{ padding:26px 30px 40px; min-width:0; }
 ::selection{ background:#d7d3ff; color:#101c3f; }
 @media (prefers-reduced-motion:reduce){ *,*::before,*::after{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .tpl-card:hover{ transform:none; } }
 
+
+/* ---------- Changelog dialog (opened from the Form Engine version link) ---------- */
+.ver-link{ background:none; border:0; padding:0; margin:0; font:inherit; color:inherit; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; border-radius:4px; }
+.ver-link:hover{ text-decoration-style:solid; }
+.ver-link:focus-visible{ outline:2px solid var(--purple); outline-offset:2px; }
+.side-footer .ver-link{ color:#8e96c2; }
+.side-footer .ver-link:hover{ color:#c9cef0; }
+.cl-scrim{ position:fixed; inset:0; background:rgba(8,12,30,.72); display:none; align-items:center; justify-content:center; padding:12px; z-index:130; }
+.cl-scrim.open{ display:flex; }
+.cl-dialog{ background:var(--card); color:var(--ink); border-radius:var(--radius); width:min(640px,100%); max-height:min(84vh,780px); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.45); }
+.cl-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:16px 18px 12px; border-bottom:1px solid var(--line); }
+.cl-head h3{ margin:0 0 4px; font-size:17px; }
+.cl-head p{ margin:0; font-size:12.5px; color:var(--ink-soft); }
+.cl-body{ flex:1; min-height:0; overflow:auto; padding:4px 18px 18px; -webkit-overflow-scrolling:touch; }
+.cl-body:focus{ outline:none; }
+.cl-body h4.cl-ver{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:20px 0 4px; padding-top:16px; border-top:1px solid var(--line); font-size:16px; }
+.cl-body h4.cl-ver:first-child{ margin-top:12px; padding-top:0; border-top:0; }
+.cl-badge{ font-size:10.5px; font-weight:700; letter-spacing:.02em; padding:2px 8px; border-radius:999px; background:var(--chip); color:var(--purple-ink); }
+.cl-badge.cur{ background:var(--purple); color:#fff; }
+.cl-body h5.cl-sec{ margin:14px 0 6px; font-size:13px; color:var(--purple-ink); }
+.cl-body ul{ margin:0 0 4px; padding-left:20px; }
+.cl-body ul ul{ margin:4px 0 4px; }
+.cl-body li{ margin:0 0 5px; font-size:13px; line-height:1.5; }
+.cl-body p{ margin:8px 0; font-size:13px; line-height:1.5; color:var(--ink-soft); }
+.cl-body code{ background:var(--chip); padding:1px 5px; border-radius:5px; font-size:12px; }
+.cl-body a{ color:var(--purple-ink); }
+.cl-foot{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:10px 18px; border-top:1px solid var(--line); background:var(--panel, var(--card)); }
+.cl-source{ font-size:11.5px; color:var(--ink-soft); }
+.cl-foot a.pill{ text-decoration:none; display:inline-flex; align-items:center; }
+@media (max-width:820px){
+  .cl-scrim{ padding:0; }
+  .cl-dialog{ width:100%; height:100%; max-height:none; border-radius:0; }
+}
 </style>
 <script>/*!
 
@@ -458,7 +491,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="hint" id="progHint">Start by choosing which DepEd form you need.</div>
     </div>
     <div class="side-footer">
-      Form Engine <span class="v">v1.2.1</span><br>
+      Form Engine <button type="button" class="ver-link" data-open-changelog title="See what's new" aria-haspopup="dialog"><span data-app-version>v1.2.1</span></button><br>
       Developed by <span class="v">Sir_JPagdi</span>
     </div>
   </aside>
@@ -594,7 +627,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     </section>
 
     <div class="main-foot">
-      <span class="credit">Form Engine v1.2.1 · Developed by Sir_JPagdi</span>
+      <span class="credit">Form Engine <button type="button" class="ver-link" data-open-changelog title="See what's new" aria-haspopup="dialog"><span data-app-version>v1.2.1</span></button> · Developed by Sir_JPagdi</span>
       <span>Your roster, grades and remarks stay in this browser only.</span>
       <button type="button" class="linklike" id="clearBtn">Clear saved work</button>
     </div>
@@ -623,6 +656,107 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div class="csv-editor-body"><div id="csvEditorGrid"></div></div>
   </div>
 </div>
+
+<!-- Changelog dialog: opened from the Form Engine version link -->
+<div class="cl-scrim" id="changelogModal" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
+  <div class="cl-dialog">
+    <div class="cl-head">
+      <div>
+        <h3 id="changelogTitle">What's new</h3>
+        <p>Form Engine · installed <span data-app-version>v1.2.1</span></p>
+      </div>
+      <button type="button" class="pill secondary" id="changelogClose">Close</button>
+    </div>
+    <div class="cl-body" id="changelogBody" tabindex="0" aria-live="polite"></div>
+    <div class="cl-foot">
+      <span class="cl-source" id="changelogSource"></span>
+      <a class="pill secondary" id="changelogRepoLink" href="https://github.com/Sir-July-Pagdi/FormEasy/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+    </div>
+  </div>
+</div>
+<script type="text/plain" id="changelogFallback"># Changelog
+
+All notable changes to FormEasy (Form Engine) are listed here, newest first.
+
+## v1.2.1
+
+**CSV Editor**
+- Fixed Shift + Arrow range selection. The range now grows and shrinks from a fixed starting cell instead of skipping cells.
+- Added keyboard shortcuts for Undo (Ctrl/Cmd + Z) and Redo (Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z).
+- Fixed Delete/Backspace so it clears the contents of any selection: a cell, a range, whole rows, whole columns, or everything. It never removes rows or columns.
+- Each edit, paste, or clear is now a single undo step. Moving around the grid never adds undo steps.
+- Selections are now clearly highlighted, with an outline around the range and a marked starting cell.
+- Selecting a whole row or column now covers every cell in it.
+- Added keyboard navigation: Arrow keys, Tab / Shift + Tab, and Enter / Shift + Enter.
+- Improved cell editing:
+  - Enter commits the edit and moves down.
+  - Escape cancels the edit and no longer closes the editor.
+  - Clicking inside a cell you are editing places the cursor instead of ending the edit.
+- Improved Copy / Cut / Paste:
+  - Copies as tab-delimited text that pastes correctly into Excel, Numbers, and Google Sheets.
+  - Pasting a single value into a selected range fills the whole range.
+  - Copy and paste now also work after selecting a row, a column, or all cells.
+- Improved touch editing on tablets: tap a cell, row number, or column header to select, and double-tap a cell to edit.
+
+**SF9 Generation**
+- Improved learner, adviser, and school head name formatting. Names are printed in uppercase, with recognized degree titles kept in their proper capitalization:
+  - EDD → EdD
+  - PHD → PhD
+  - PSYD → PsyD
+  - EDS → EdS
+  - DED → DEd
+- Adjusted the SF9 certification statement to the intended two-line layout: "This is to certify that the above-named learner has satisfactorily completed the requirements for the" / "grade level indicated."
+
+**General**
+- The version number in the sidebar footer now opens this changelog.
+- No changes to the SF9 grading computation or the CSV data structure.
+
+## v1.2.0
+
+**Remarks and Comments**
+- Added automatic remark suggestions for each term, based on that term's average:
+  - Above 97 → Comment 1
+  - 75 to 97 → Comments 2 to 61, distributed across the range
+  - Below 75 → Comment 62
+- Suggestions are in English by default, and an English / Filipino toggle switches their language.
+- Teachers can still choose any preset remark, change the language for an individual term, or enter a custom remark.
+- The selected remark is printed on the back page of the SF9 PDF.
+- Teacher comments are now printed in Cedarville Cursive. The rest of the form stays in Bookman.
+- Fixed: saved work from an earlier version now defaults to English suggestions when no language was stored.
+
+**CSV Editor**
+- Added an in-app spreadsheet-style CSV editor for Roster, Grades, and Attendance.
+- Loads your current FormEasy data for editing, or imports a CSV.
+- Supports paste, undo/redo, CSV import, and CSV download.
+- Transfers edited data directly back into FormEasy.
+- Renamed the CSV controls to Transfer / Edit your data for a clearer workflow.
+
+## v1.1.0
+
+**Dynamic Academic Electives (G11 / G12)**
+- Added a **+ Add elective** button per term on Subjects & Electives for G11 and G12 Academic, replacing the fixed list.
+- Caps: G11 up to 2 per term and 5 in total; G12 up to 7 / 7 / 4 per term.
+- Adding or removing an elective automatically loads the matching pre-generated PDF/JSON variant from that form's `<Grade> Academic variant` folder, or the built-in base template for the prescribed count. A clear message appears if a variant folder isn't hosted with your copy.
+- Fixed: the Units column was not drawn for elective rows or the General Average. It now prints correctly for every elective count.
+
+**Effective Communication / Mabisang Komunikasyon (G11 Academic, G11 TechPro)**
+- These are now graded as two separate subjects, each with its own T1 / T2 / T3, Final Grade, and Remarks on Subjects & Electives and in the grades CSV.
+- On the printed form, each subject prints its own T1 / T2 / T3 on its own row, with Units, Final Grade, and Remarks left blank there.
+- The combined row above them prints each term as the average of the two subjects, 6 Units, and an averaged Final Grade and Remarks. Only the combined row counts toward the General Average.
+- Fixed: an older "print on whichever row is chosen" step was blanking the combined row's 6-Units cell on every card. It now runs only when a row asks for it.
+- Fixed: the "Dear Parents" paragraph could run into the School Head / Adviser names on templates with less room, such as G12 Academic. It now shrinks slightly to fit when needed.
+
+**Branding**
+- Added the tagline "Build in seconds. Collect with ease." to the browser tab title and to a short welcome panel on the Select a Form step.
+- Added an app icon: favicon, Apple touch icon, and a `manifest.json` with 192 px and 512 px icons, so "Add to Home Screen" uses the FormEasy mark. Icon files are in `assets/`.
+- The Select a Form step now mentions that SF10 is on the way, alongside SF9.
+
+## v1.0.0
+
+- Initial release: SF9 report-card generation for G11 and G12, Academic and TechPro, from a class roster and grades/attendance CSVs.
+- Download layouts: A5 (front and back page) and A4 landscape.
+- Output: separate PDFs in a zip, or one merged PDF.
+</script>
 
 <script type="text/plain" id="pdfWorkerSrc">
 /**
@@ -2313,6 +2447,106 @@ $('csvEditorCancel').addEventListener('click', () => csvEditorClose());
 $('closeCsvEditor').addEventListener('click', () => csvEditorClose());
 $('csvEditorModal').addEventListener('click', e => { if(e.target === $('csvEditorModal')) csvEditorClose(); });
 document.addEventListener('keydown', e => { if(e.key === 'Escape' && $('csvEditorModal').classList.contains('open')) csvEditorClose(); });
+
+/* ============ Changelog dialog (Form Engine version link) ============ */
+const APP_VERSION = '1.2.1';
+const CHANGELOG_RAW_URL  = 'https://raw.githubusercontent.com/Sir-July-Pagdi/FormEasy/main/CHANGELOG.md';
+const CHANGELOG_REPO_URL = 'https://github.com/Sir-July-Pagdi/FormEasy/blob/main/CHANGELOG.md';
+(function(){
+  const modal = $('changelogModal'), body = $('changelogBody'), srcEl = $('changelogSource'), closeBtn = $('changelogClose');
+  let returnFocus = null, loadId = 0;
+  document.querySelectorAll('[data-app-version]').forEach(n => { n.textContent = 'v' + APP_VERSION; });
+  $('changelogRepoLink').href = CHANGELOG_REPO_URL;
+
+  const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const inline = t => esc(t)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  /* Small, safe Markdown subset: "## v1.2.3" headings, **Section** lines, "-"/"*" bullets (one nested level),
+     wrapped continuation lines, `code`, **bold**, [links](https://...). Everything is HTML-escaped first. */
+  function renderChangelog(md){
+    const out = []; let first = true, depth = -1, li = null;
+    const closeLists = () => { while(depth >= 0){ out.push('</li></ul>'); depth--; } li = null; };
+    String(md).replace(/\r/g,'').split('\n').forEach(raw => {
+      const line = raw.replace(/\s+$/,'');
+      if(!line.trim()) return;
+      let m;
+      if(/^#\s/.test(line)) return;                                              // "# Changelog" (the dialog has its own title)
+      if((m = line.match(/^#{2,3}\s*v?(\d+\.\d+\.\d+)\s*(.*)$/i)) || (m = line.match(/^v(\d+\.\d+\.\d+)\s*(.*)$/i))){
+        closeLists();
+        const ver = m[1], badges = [];
+        if(first) badges.push('<span class="cl-badge">Latest</span>');
+        if(ver === APP_VERSION) badges.push('<span class="cl-badge cur">Installed</span>');
+        out.push('<h4 class="cl-ver" id="cl-v' + esc(ver.replace(/\./g,'-')) + '">v' + esc(ver) + (m[2] ? ' <span class="cl-badge">' + esc(m[2].replace(/^[\s–—-]+/,'')) + '</span>' : '') + badges.join('') + '</h4>');
+        first = false; return;
+      }
+      if((m = line.match(/^#{3,4}\s+(.*)$/)) || (m = line.match(/^\*\*([^*]+)\*\*:?$/))){
+        closeLists(); out.push('<h5 class="cl-sec">' + inline(m[1]) + '</h5>'); return;
+      }
+      if((m = line.match(/^(\s*)[-*+]\s+(.*)$/))){
+        const lvl = m[1].length >= 2 ? 1 : 0;
+        if(depth < 0){ out.push('<ul>'); depth = 0; }
+        while(depth < lvl){ out.push('<ul>'); depth++; }
+        while(depth > lvl){ out.push('</li></ul>'); depth--; li = null; }
+        if(li) out.push('</li>');
+        out.push('<li>' + inline(m[2])); li = true; return;
+      }
+      if(depth >= 0 && /^\s+\S/.test(raw)){ out.push(' ' + inline(line.trim())); return; }   // wrapped bullet text
+      closeLists(); out.push('<p>' + inline(line.trim()) + '</p>');
+    });
+    closeLists();
+    return out.join('\n');
+  }
+  function bundledChangelog(){ const n = $('changelogFallback'); return n ? n.textContent : ''; }
+  function show(md, source){ body.innerHTML = renderChangelog(md) || '<p>No changelog entries found.</p>'; srcEl.textContent = source; }
+
+  async function refreshFromRepo(myId){
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 7000);
+    try{
+      const res = await fetch(CHANGELOG_RAW_URL, { cache:'no-cache', signal: ctl.signal });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      if(!/^##\s*v?\d+\.\d+\.\d+/m.test(text) || text.length > 300000) throw new Error('Unexpected changelog format');
+      if(myId !== loadId) return;                                              // dialog was closed/reopened meanwhile
+      const top = body.scrollTop;
+      show(text, 'Loaded from the FormEasy repository on GitHub.');
+      body.scrollTop = top;
+    }catch(err){
+      if(myId === loadId) srcEl.textContent = 'Offline copy bundled with this version. Connect to the internet to see the latest.';
+    }finally{ clearTimeout(timer); }
+  }
+  function openChangelog(trigger){
+    returnFocus = trigger || document.activeElement;
+    loadId++;
+    show(bundledChangelog(), 'Checking GitHub for the latest…');           // instant, works offline
+    modal.classList.add('open');
+    body.scrollTop = 0;
+    closeBtn.focus({ preventScroll:true });
+    refreshFromRepo(loadId);
+  }
+  function closeChangelog(){
+    if(!modal.classList.contains('open')) return;
+    modal.classList.remove('open'); loadId++;
+    if(returnFocus && returnFocus.focus) try{ returnFocus.focus({ preventScroll:true }); }catch(e){}
+    returnFocus = null;
+  }
+  document.querySelectorAll('[data-open-changelog]').forEach(b => b.addEventListener('click', () => openChangelog(b)));
+  closeBtn.addEventListener('click', closeChangelog);
+  modal.addEventListener('click', e => { if(e.target === modal) closeChangelog(); });
+  document.addEventListener('keydown', e => {
+    if(!modal.classList.contains('open')) return;
+    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); closeChangelog(); return; }
+    if(e.key === 'Tab'){                                                       // keep keyboard focus inside the dialog
+      const f = [closeBtn, body, $('changelogRepoLink')];
+      const i = f.indexOf(document.activeElement);
+      const next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i < 0 || i === f.length - 1 ? 0 : i + 1);
+      e.preventDefault(); f[next].focus({ preventScroll:true });
+    }
+  }, true);
+})();
+
 
 /* ============ Saving files (downloads capability) ============ */
 let DL = null;
