@@ -288,6 +288,30 @@ main{ padding:26px 30px 40px; min-width:0; }
 #csvEditorGrid{ width:100%; height:100%; overflow:auto; }
 #csvEditorGrid .jexcel_content{ max-height:none !important; height:100% !important; }
 #csvEditorGrid .jexcel{ font-family:inherit; font-size:12px; }
+/* Excel-style selection visibility for Jspreadsheet CE */
+#csvEditorGrid .jexcel td.highlight,
+#csvEditorGrid .jexcel td.highlight-left,
+#csvEditorGrid .jexcel td.highlight-right,
+#csvEditorGrid .jexcel td.highlight-top,
+#csvEditorGrid .jexcel td.highlight-bottom,
+#csvEditorGrid .jexcel td.selected,
+#csvEditorGrid .jexcel td.selection-active{
+  background:color-mix(in srgb, var(--accent) 20%, var(--card)) !important;
+}
+#csvEditorGrid .jexcel td.highlight,
+#csvEditorGrid .jexcel td.selected{
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+#csvEditorGrid .jexcel td.highlight-left{ border-left:2px solid var(--accent) !important; }
+#csvEditorGrid .jexcel td.highlight-right{ border-right:2px solid var(--accent) !important; }
+#csvEditorGrid .jexcel td.highlight-top{ border-top:2px solid var(--accent) !important; }
+#csvEditorGrid .jexcel td.highlight-bottom{ border-bottom:2px solid var(--accent) !important; }
+#csvEditorGrid .jexcel .highlight-selected,
+#csvEditorGrid .jexcel .selected{ background:color-mix(in srgb, var(--accent) 24%, var(--panel)) !important; }
+#csvEditorGrid .jexcel thead td.highlight,
+#csvEditorGrid .jexcel thead td.selected,
+#csvEditorGrid .jexcel .jexcel_selectall.highlight,
+#csvEditorGrid .jexcel .jexcel_selectall.selected{ background:color-mix(in srgb, var(--accent) 28%, var(--panel)) !important; }
 @media (max-width:700px){
   .csv-editor-scrim{ padding:0; }
   .csv-editor-dialog{ width:100%; height:100%; border-radius:0; }
