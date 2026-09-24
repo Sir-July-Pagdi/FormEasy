@@ -79,7 +79,7 @@ Added an in-app Excel-style CSV editor for Roster, Grades Summary, and Attendanc
 - Edit cells, drag-fill, resize, insert/delete rows and columns
 - Undo/redo and context menu
 - Import and download CSV
-- Transfer edited data directly back into FormEasy
+- Transfer edited data directly back into FormEasy.
 
 ## Development notes
 
