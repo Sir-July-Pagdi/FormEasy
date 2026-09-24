@@ -279,9 +279,15 @@ main{ padding:26px 30px 40px; min-width:0; }
 .formeasy-offline-grid th{ position:sticky; top:0; z-index:2; background:var(--panel); font-weight:700; }
 .formeasy-offline-grid td{ background:var(--card); outline:none; }
 .formeasy-offline-grid td:focus{ box-shadow:inset 0 0 0 2px var(--accent); }
-.formeasy-offline-grid td.selection-active{ background:color-mix(in srgb, var(--accent) 18%, var(--card)); }
+.formeasy-offline-grid td.selection-active{ background:rgba(92,86,220,.14) !important; }
 .formeasy-offline-grid td.selection-anchor{ box-shadow:inset 0 0 0 2px var(--accent); }
-.formeasy-offline-grid th.selection-header{ background:color-mix(in srgb, var(--accent) 22%, var(--panel)); }
+.formeasy-offline-grid td.selection-edge-top{ border-top:2px solid var(--accent) !important; }
+.formeasy-offline-grid td.selection-edge-bottom{ border-bottom:2px solid var(--accent) !important; }
+.formeasy-offline-grid td.selection-edge-left{ border-left:2px solid var(--accent) !important; }
+.formeasy-offline-grid td.selection-edge-right{ border-right:2px solid var(--accent) !important; }
+.formeasy-offline-grid td.editing{ background:var(--input-bg) !important; box-shadow:inset 0 0 0 2px var(--accent); }
+.formeasy-offline-grid td:focus{ outline:none; }
+.formeasy-offline-grid th.selection-header{ background:rgba(92,86,220,.18) !important; }
 .formeasy-offline-grid .row-number{ position:sticky; left:0; z-index:1; min-width:42px; width:42px; text-align:center; background:var(--panel); }
 .formeasy-offline-grid th.row-number{ z-index:3; }
 
@@ -1704,69 +1710,215 @@ let csvEditorHeaders = [];
 
 function createOfflineSpreadsheet(el, options){
   const data=(options.data||[]).map(r=>r.slice());
-  const columns=options.columns||[];
+  const columns=(options.columns||[]).map(c=>Object.assign({},c));
   const width=Math.max(columns.length, ...data.map(r=>r.length), 1);
   while(columns.length<width) columns.push({type:'text',title:'Column '+(columns.length+1)});
   while(data.length<Math.max(data.length,20)) data.push(new Array(width).fill(''));
   data.forEach(r=>{ while(r.length<width) r.push(''); });
   el.classList.add('formeasy-offline-grid');
+
   let history=[],future=[];
-  let selection={r1:0,c1:0,r2:0,c2:0,mode:'cell'}, selecting=false;
+  let selection={r1:0,c1:0,r2:0,c2:0,mode:'cell'};
+  let selecting=false, editing=false, suppressHistory=false;
+
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   function snapshot(){ return data.map(r=>r.slice()); }
   function normalizeSelection(){
-    const r1=Math.min(selection.r1,selection.r2), r2=Math.max(selection.r1,selection.r2);
-    const c1=Math.min(selection.c1,selection.c2), c2=Math.max(selection.c1,selection.c2);
-    return {r1,c1,r2,c2};
+    return {
+      r1:Math.min(selection.r1,selection.r2),
+      c1:Math.min(selection.c1,selection.c2),
+      r2:Math.max(selection.r1,selection.r2),
+      c2:Math.max(selection.c1,selection.c2),
+    };
   }
+  function activeCell(){ return {r:clamp(selection.r1,0,Math.max(0,data.length-1)), c:clamp(selection.c1,0,Math.max(0,width-1))}; }
+  function cellEl(r,c){ return el.querySelector(`td[data-r="${r}"][data-c="${c}"]`); }
   function paintSelection(){
     const s=normalizeSelection();
     el.querySelectorAll('td[data-r][data-c]').forEach(td=>{
       const r=+td.dataset.r,c=+td.dataset.c;
       td.classList.toggle('selection-active',r>=s.r1&&r<=s.r2&&c>=s.c1&&c<=s.c2);
       td.classList.toggle('selection-anchor',r===selection.r1&&c===selection.c1);
+      td.classList.toggle('selection-edge-top',r===s.r1&&c>=s.c1&&c<=s.c2);
+      td.classList.toggle('selection-edge-bottom',r===s.r2&&c>=s.c1&&c<=s.c2);
+      td.classList.toggle('selection-edge-left',c===s.c1&&r>=s.r1&&r<=s.r2);
+      td.classList.toggle('selection-edge-right',c===s.c2&&r>=s.r1&&r<=s.r2);
     });
-    el.querySelectorAll('th.row-number').forEach((th,i)=>{
-      if(i===0) return;
-      const r=i-1; th.classList.toggle('selection-header',r>=s.r1&&r<=s.r2);
+    el.querySelectorAll('thead th[data-c]').forEach(th=>{
+      const c=+th.dataset.c; th.classList.toggle('selection-header',c>=s.c1&&c<=s.c2);
     });
-    el.querySelectorAll('thead th:not(.row-number)').forEach((th,c)=>th.classList.toggle('selection-header',c>=s.c1&&c<=s.c2));
-    const corner=el.querySelector('thead th.row-number'); if(corner) corner.classList.toggle('selection-header',s.r1===0&&s.r2===data.length-1&&s.c1===0&&s.c2===width-1);
+    el.querySelectorAll('tbody th.row-number[data-r]').forEach(th=>{
+      const r=+th.dataset.r; th.classList.toggle('selection-header',r>=s.r1&&r<=s.r2);
+    });
+    const corner=el.querySelector('thead th.row-number.corner');
+    if(corner) corner.classList.toggle('selection-header',s.r1===0&&s.r2===data.length-1&&s.c1===0&&s.c2===width-1);
   }
   function setSelection(r,c,r2=r,c2=c,mode='cell',focus=true){
-    selection={r1:Math.max(0,r),c1:Math.max(0,c),r2:Math.max(0,r2),c2:Math.max(0,c2),mode};
+    selection={r1:clamp(r,0,data.length-1),c1:clamp(c,0,width-1),r2:clamp(r2,0,data.length-1),c2:clamp(c2,0,width-1),mode};
     paintSelection();
-    if(focus){ const td=el.querySelector(`td[data-r=\"${r}\"][data-c=\"${c}\"]`); if(td) td.focus(); }
+    if(focus){
+      const td=cellEl(selection.r1,selection.c1);
+      if(td){ td.focus(); try{ td.scrollIntoView({block:'nearest',inline:'nearest'}); }catch(e){} }
+    }
   }
-  function saveHistory(){ history.push(snapshot()); if(history.length>50) history.shift(); future=[]; }
+  function saveHistory(){
+    if(suppressHistory) return;
+    history.push(snapshot()); if(history.length>50) history.shift(); future=[];
+  }
+  function ensureRow(r){
+    while(data.length<=r) data.push(new Array(width).fill(''));
+    while(data[r].length<width) data[r].push('');
+  }
+  function enterEdit(td, initialChar){
+    if(!td) return;
+    editing=true;
+    td.contentEditable='true';
+    td.classList.add('editing');
+    td.focus();
+    if(initialChar!=null){
+      td.textContent=initialChar;
+      const range=document.createRange(), sel=window.getSelection();
+      range.selectNodeContents(td); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
+      data[+td.dataset.r][+td.dataset.c]=initialChar;
+      if(options.onchange) options.onchange();
+    }else{
+      try{ const range=document.createRange(), sel=window.getSelection(); range.selectNodeContents(td); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); }catch(e){}
+    }
+  }
+  function exitEdit(){
+    const td=el.querySelector('td.editing');
+    if(td){ td.classList.remove('editing'); td.contentEditable='false'; }
+    editing=false;
+  }
+  function moveSelection(dr,dc,extend){
+    const a=activeCell();
+    const nr=clamp(a.r+dr,0,data.length-1), nc=clamp(a.c+dc,0,width-1);
+    if(extend){
+      selection.r2=nr; selection.c2=nc;
+    }else{
+      selection={r1:nr,c1:nc,r2:nr,c2:nc,mode:'cell'};
+    }
+    exitEdit(); paintSelection();
+    const td=cellEl(nr,nc); if(td){ td.focus(); try{td.scrollIntoView({block:'nearest',inline:'nearest'});}catch(e){} }
+  }
+  function clearSelected(){
+    const s=normalizeSelection(); saveHistory();
+    for(let r=s.r1;r<=s.r2;r++){ ensureRow(r); for(let c=s.c1;c<=s.c2;c++) data[r][c]=''; }
+    render(); setSelection(s.r1,s.c1,s.r2,s.c2,s.r1===s.r2&&s.c1===s.c2?'cell':'range',true);
+    if(options.onchange) options.onchange();
+  }
+  function copySelected(cut){
+    const s=normalizeSelection(), out=[];
+    for(let r=s.r1;r<=s.r2;r++){ const row=[]; for(let c=s.c1;c<=s.c2;c++) row.push(data[r]?.[c]??''); out.push(row.join('\t')); }
+    const txt=out.join('\n');
+    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).catch(()=>{});
+    try{
+      const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed';ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }catch(e){}
+    if(cut) clearSelected();
+  }
+  function pasteInto(startR,startC,text){
+    const rows=text.replace(/\r/g,'').split('\n');
+    if(rows.length && rows[rows.length-1]==='') rows.pop();
+    if(!rows.length) return;
+    saveHistory();
+    rows.forEach((line,dr)=>line.split('\t').forEach((v,dc)=>{ const r=startR+dr,c=startC+dc; ensureRow(r); if(c<width) data[r][c]=v; }));
+    render();
+    const endR=clamp(startR+rows.length-1,0,data.length-1), maxCols=Math.max(...rows.map(x=>x.split('\t').length));
+    const endC=clamp(startC+maxCols-1,0,width-1);
+    setSelection(startR,startC,endR,endC,'range',true);
+    if(options.onchange) options.onchange();
+  }
   function render(){
-    el.innerHTML=''; const wrap=document.createElement('table'), thead=document.createElement('thead'), hr=document.createElement('tr');
-    const corner=document.createElement('th'); corner.className='row-number'; corner.textContent='#';
-    corner.addEventListener('mousedown',e=>{e.preventDefault(); setSelection(0,0,data.length-1,width-1,'all',false);});
+    el.innerHTML='';
+    const wrap=document.createElement('table');
+    const thead=document.createElement('thead');
+    const hr=document.createElement('tr');
+    const corner=document.createElement('th'); corner.className='row-number corner'; corner.textContent='#';
+    corner.addEventListener('pointerdown',e=>{e.preventDefault(); selecting=false; exitEdit(); setSelection(0,0,data.length-1,width-1,'all',false);});
     hr.appendChild(corner);
-    columns.forEach((c,i)=>{ const th=document.createElement('th'); th.textContent=c.title||('Column '+(i+1)); th.style.minWidth=(c.width||110)+'px';
-      th.addEventListener('mousedown',e=>{e.preventDefault(); selecting=true; setSelection(0,i,data.length-1,i,'column',false);});
-      hr.appendChild(th); });
-    thead.appendChild(hr); wrap.appendChild(thead); const tbody=document.createElement('tbody');
-    data.forEach((row,ri)=>{ const tr=document.createElement('tr'); const rn=document.createElement('th'); rn.className='row-number'; rn.textContent=ri+1;
-      rn.addEventListener('mousedown',e=>{e.preventDefault(); selecting=true; setSelection(ri,0,ri,width-1,'row',false);});
+    columns.forEach((c,i)=>{
+      const th=document.createElement('th'); th.dataset.c=i; th.textContent=c.title||('Column '+(i+1)); th.style.minWidth=(c.width||110)+'px';
+      th.addEventListener('pointerdown',e=>{e.preventDefault(); selecting=true; exitEdit(); setSelection(0,i,data.length-1,i,'column',false);});
+      th.addEventListener('pointerenter',()=>{if(selecting){selection.r2=data.length-1;selection.c2=i;paintSelection();}});
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr); wrap.appendChild(thead);
+    const tbody=document.createElement('tbody');
+    data.forEach((row,ri)=>{
+      const tr=document.createElement('tr');
+      const rn=document.createElement('th'); rn.className='row-number'; rn.dataset.r=ri; rn.textContent=ri+1;
+      rn.addEventListener('pointerdown',e=>{e.preventDefault(); selecting=true; exitEdit(); setSelection(ri,0,ri,width-1,'row',false);});
+      rn.addEventListener('pointerenter',()=>{if(selecting){selection.r2=ri;selection.c2=width-1;paintSelection();}});
       tr.appendChild(rn);
-      columns.forEach((c,ci)=>{ const td=document.createElement('td'); td.contentEditable='true'; td.textContent=row[ci]??''; td.dataset.r=ri; td.dataset.c=ci;
-        td.addEventListener('mousedown',e=>{
-          if(e.shiftKey){ e.preventDefault(); setSelection(selection.r1,selection.c1,ri,ci,'range',true); }
-          else { selecting=true; setSelection(ri,ci,ri,ci,'cell',true); }
+      columns.forEach((c,ci)=>{
+        const td=document.createElement('td'); td.contentEditable='true'; td.tabIndex=0; td.textContent=row[ci]??''; td.dataset.r=ri; td.dataset.c=ci;
+        td.addEventListener('pointerdown',e=>{
+          if(e.shiftKey){e.preventDefault();setSelection(selection.r1,selection.c1,ri,ci,'range',true);}
+          else{selecting=true;exitEdit();setSelection(ri,ci,ri,ci,'cell',true);}
         });
-        td.addEventListener('mouseenter',()=>{ if(selecting){ selection.r2=ri; selection.c2=ci; paintSelection(); } });
-        td.addEventListener('focus',()=>saveHistory());
-        td.addEventListener('input',()=>{data[ri][ci]=td.textContent; if(options.onchange) options.onchange();});
-        td.addEventListener('keydown',e=>{ if(e.key==='Tab'){e.preventDefault(); const n=td.parentElement.children[ci+2]||tbody.children[ri+1]?.children[ci+1]; if(n) n.focus();} });
-        td.addEventListener('paste',e=>{ const text=(e.clipboardData||window.clipboardData).getData('text'); if(text.includes('\t')||text.includes('\n')){ e.preventDefault(); const rows=text.replace(/\r/g,'').split('\n').filter((x,i,a)=>x!==''||i<a.length-1).map(x=>x.split('\t')); saveHistory(); rows.forEach((rr,dr)=>rr.forEach((v,dc)=>{ const r=ri+dr,cx=ci+dc; while(data.length<=r)data.push(new Array(width).fill('')); while(data[r].length<width)data[r].push(''); data[r][cx]=v;})); render(); if(options.onchange)options.onchange(); }});
-        tr.appendChild(td); }); tbody.appendChild(tr); });
-    wrap.appendChild(tbody); el.appendChild(wrap);
-    paintSelection();
+        td.addEventListener('pointerenter',()=>{if(selecting){selection.r2=ri;selection.c2=ci;paintSelection();}});
+        td.addEventListener('dblclick',e=>{e.preventDefault(); saveHistory(); enterEdit(td);});
+        td.addEventListener('input',()=>{data[ri][ci]=td.textContent||''; if(options.onchange) options.onchange();});
+        td.addEventListener('keydown',e=>{
+          const printable=e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+          if(e.key==='Escape'){ e.preventDefault(); exitEdit(); paintSelection(); return; }
+          if(e.key==='F2'){ e.preventDefault(); saveHistory(); enterEdit(td); return; }
+          if(!editing && printable){ e.preventDefault(); saveHistory(); enterEdit(td,e.key); return; }
+          if(e.key==='Delete' || e.key==='Backspace'){ if(!editing){e.preventDefault();clearSelected();} return; }
+          if(e.key==='Enter' && !editing){ e.preventDefault(); moveSelection(e.shiftKey?-1:1,0,false); return; }
+          if(e.key==='Tab' && !editing){
+            e.preventDefault();
+            const a=activeCell();
+            let nr=a.r, nc=a.c+(e.shiftKey?-1:1);
+            if(nc<0){ nr=clamp(a.r-1,0,data.length-1); nc=width-1; }
+            else if(nc>=width){ nr=clamp(a.r+1,0,data.length-1); nc=0; }
+            setSelection(nr,nc,nr,nc,'cell',true);
+            return;
+          }
+          const arrows={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+          if(arrows[e.key] && !editing && !e.ctrlKey && !e.metaKey && !e.altKey){
+            // Spreadsheet navigation: arrows move the active cell; Shift+Arrow extends the range.
+            e.preventDefault(); moveSelection(arrows[e.key][0],arrows[e.key][1],e.shiftKey); return;
+          }
+        });
+        td.addEventListener('paste',e=>{
+          const text=(e.clipboardData||window.clipboardData).getData('text');
+          if(text.includes('\t')||text.includes('\n')){e.preventDefault();exitEdit();pasteInto(ri,ci,text);}
+        });
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    wrap.appendChild(tbody); el.appendChild(wrap); paintSelection();
   }
-  el.addEventListener('mouseup',()=>{selecting=false;});
+  el.addEventListener('pointerup',()=>{selecting=false;});
+  el.addEventListener('pointercancel',()=>{selecting=false;});
+  el.addEventListener('mouseleave',()=>{selecting=false;});
+  el.addEventListener('copy',e=>{
+    if(!el.contains(document.activeElement)) return;
+    e.preventDefault(); copySelected(false);
+  });
+  el.addEventListener('cut',e=>{
+    if(!el.contains(document.activeElement)) return;
+    e.preventDefault(); copySelected(true);
+  });
+  el.addEventListener('keydown',e=>{
+    if(!el.contains(e.target)) return;
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'){
+      e.preventDefault(); exitEdit(); setSelection(0,0,data.length-1,width-1,'all',false);
+    }
+  });
   render();
-  return [{ getData:()=>data.map(r=>r.slice()), destroy:()=>{el.innerHTML='';el.classList.remove('formeasy-offline-grid');}, download:()=>downloadCSVFile((options.csvFileName||'formeasy')+'.csv',[columns.map(c=>c.title)].concat(data)), selectCell:(c,r)=>{ const td=el.querySelector(`td[data-r="${r}"][data-c="${c}"]`); if(td)td.focus(); }, undo:()=>{if(history.length){future.push(snapshot());const prev=history.pop();data.splice(0,data.length,...prev);render();}}, redo:()=>{if(future.length){history.push(snapshot());const next=future.pop();data.splice(0,data.length,...next);render();}} }];
+  setSelection(0,0,0,0,'cell',false);
+  return [{
+    getData:()=>data.map(r=>r.slice()),
+    destroy:()=>{exitEdit();el.innerHTML='';el.classList.remove('formeasy-offline-grid');},
+    download:()=>downloadCSVFile((options.csvFileName||'formeasy')+'.csv',[columns.map(c=>c.title)].concat(data)),
+    selectCell:(c,r)=>setSelection(r,c,r,c,'cell',true),
+    undo:()=>{if(history.length){future.push(snapshot());const prev=history.pop();data.splice(0,data.length,...prev);render();setSelection(0,0,0,0,'cell',true);if(options.onchange)options.onchange();}},
+    redo:()=>{if(future.length){history.push(snapshot());const next=future.pop();data.splice(0,data.length,...next);render();setSelection(0,0,0,0,'cell',true);if(options.onchange)options.onchange();}}
+  }];
 }
 
 function csvEditorColumns(headers){
@@ -1836,7 +1988,7 @@ async function csvEditorOpen(kind){
   $('csvEditorTitle').textContent = csvEditorLabel(kind) + ' — CSV Editor';
   $('csvEditorHint').innerHTML = 'Your current FormEasy data is loaded here when available. Edit it directly, or import/paste a CSV. You can paste from Excel/Numbers/Google Sheets, then <strong>Transfer changes to FormEasy</strong>. Changes are saved to FormEasy only when you transfer them.';
   $('csvEditorModal').classList.add('open');
-  csvEditor = jspreadsheet($('csvEditorGrid'), {
+  csvEditor = createOfflineSpreadsheet($('csvEditorGrid'), {
     data: csvEditorRows,
     columns: csvEditorColumns(seed.headers),
     minDimensions: [Math.max(seed.headers.length, 4), Math.max(seed.rows.length, 20)],
@@ -1887,7 +2039,7 @@ function csvEditorImportText(text){
       try { csvEditor[0].destroy(); } catch(e){}
       $('csvEditorGrid').innerHTML = '';
     }
-    csvEditor = jspreadsheet($('csvEditorGrid'), {
+    csvEditor = createOfflineSpreadsheet($('csvEditorGrid'), {
       data: normalized,
       columns: csvEditorColumns(headers),
       minDimensions: [Math.max(width, 4), Math.max(normalized.length, 20)],
