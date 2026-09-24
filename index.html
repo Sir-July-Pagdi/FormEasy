@@ -2139,12 +2139,15 @@ function finalGradeFor(lrn, subjKey, cols){
 const passFail = v => v >= 75 ? 'Passed' : 'Failed';
 
 /* ============ What gets written onto the PDF ============ */
+function pdfNameCaps(value){
+  return String(value || '').toUpperCase().replace(/\b(EDD|PHD|PSYD|EDS|DED)\b/g, m => ({EDD:'EdD', PHD:'PhD', PSYD:'PsyD', EDS:'EdS', DED:'DEd'}[m]));
+}
 function buildSF9Data(student, spec){
   const t = tplOf(), b = t.bindings, setup = S.setup || {}, caps = ACADEMIC_ELECTIVE_CAPS[t.id];
   const d = {
-    header: { name:student.name, lrn:student.lrn, age:String(computeAge(student.dob, setup.sy)), sex:student.sex === 'F' ? 'Female' : 'Male',
+    header: { name:pdfNameCaps(student.name), lrn:student.lrn, age:String(computeAge(student.dob, setup.sy)), sex:student.sex === 'F' ? 'Female' : 'Male',
               grade:t.grade, section:setup.section || '', track:t.track },
-    head: setup.head || '', adviser: setup.adviser || '', rows: {}, avg: null, remarks: {},
+    head: pdfNameCaps(setup.head), adviser: pdfNameCaps(setup.adviser), rows: {}, avg: null, remarks: {},
   };
   let sumF = 0, sumU = 0;
   // Separate raw term averages for automatic remarks; existing General Average logic is untouched.
