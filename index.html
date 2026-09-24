@@ -279,6 +279,9 @@ main{ padding:26px 30px 40px; min-width:0; }
 .formeasy-offline-grid th{ position:sticky; top:0; z-index:2; background:var(--panel); font-weight:700; }
 .formeasy-offline-grid td{ background:var(--card); outline:none; }
 .formeasy-offline-grid td:focus{ box-shadow:inset 0 0 0 2px var(--accent); }
+.formeasy-offline-grid td.selection-active{ background:color-mix(in srgb, var(--accent) 18%, var(--card)); }
+.formeasy-offline-grid td.selection-anchor{ box-shadow:inset 0 0 0 2px var(--accent); }
+.formeasy-offline-grid th.selection-header{ background:color-mix(in srgb, var(--accent) 22%, var(--panel)); }
 .formeasy-offline-grid .row-number{ position:sticky; left:0; z-index:1; min-width:42px; width:42px; text-align:center; background:var(--panel); }
 .formeasy-offline-grid th.row-number{ z-index:3; }
 
@@ -1684,22 +1687,60 @@ function createOfflineSpreadsheet(el, options){
   data.forEach(r=>{ while(r.length<width) r.push(''); });
   el.classList.add('formeasy-offline-grid');
   let history=[],future=[];
+  let selection={r1:0,c1:0,r2:0,c2:0,mode:'cell'}, selecting=false;
   function snapshot(){ return data.map(r=>r.slice()); }
+  function normalizeSelection(){
+    const r1=Math.min(selection.r1,selection.r2), r2=Math.max(selection.r1,selection.r2);
+    const c1=Math.min(selection.c1,selection.c2), c2=Math.max(selection.c1,selection.c2);
+    return {r1,c1,r2,c2};
+  }
+  function paintSelection(){
+    const s=normalizeSelection();
+    el.querySelectorAll('td[data-r][data-c]').forEach(td=>{
+      const r=+td.dataset.r,c=+td.dataset.c;
+      td.classList.toggle('selection-active',r>=s.r1&&r<=s.r2&&c>=s.c1&&c<=s.c2);
+      td.classList.toggle('selection-anchor',r===selection.r1&&c===selection.c1);
+    });
+    el.querySelectorAll('th.row-number').forEach((th,i)=>{
+      if(i===0) return;
+      const r=i-1; th.classList.toggle('selection-header',r>=s.r1&&r<=s.r2);
+    });
+    el.querySelectorAll('thead th:not(.row-number)').forEach((th,c)=>th.classList.toggle('selection-header',c>=s.c1&&c<=s.c2));
+    const corner=el.querySelector('thead th.row-number'); if(corner) corner.classList.toggle('selection-header',s.r1===0&&s.r2===data.length-1&&s.c1===0&&s.c2===width-1);
+  }
+  function setSelection(r,c,r2=r,c2=c,mode='cell',focus=true){
+    selection={r1:Math.max(0,r),c1:Math.max(0,c),r2:Math.max(0,r2),c2:Math.max(0,c2),mode};
+    paintSelection();
+    if(focus){ const td=el.querySelector(`td[data-r=\"${r}\"][data-c=\"${c}\"]`); if(td) td.focus(); }
+  }
   function saveHistory(){ history.push(snapshot()); if(history.length>50) history.shift(); future=[]; }
   function render(){
     el.innerHTML=''; const wrap=document.createElement('table'), thead=document.createElement('thead'), hr=document.createElement('tr');
-    const corner=document.createElement('th'); corner.className='row-number'; corner.textContent='#'; hr.appendChild(corner);
-    columns.forEach((c,i)=>{ const th=document.createElement('th'); th.textContent=c.title||('Column '+(i+1)); th.style.minWidth=(c.width||110)+'px'; hr.appendChild(th); });
+    const corner=document.createElement('th'); corner.className='row-number'; corner.textContent='#';
+    corner.addEventListener('mousedown',e=>{e.preventDefault(); setSelection(0,0,data.length-1,width-1,'all',false);});
+    hr.appendChild(corner);
+    columns.forEach((c,i)=>{ const th=document.createElement('th'); th.textContent=c.title||('Column '+(i+1)); th.style.minWidth=(c.width||110)+'px';
+      th.addEventListener('mousedown',e=>{e.preventDefault(); selecting=true; setSelection(0,i,data.length-1,i,'column',false);});
+      hr.appendChild(th); });
     thead.appendChild(hr); wrap.appendChild(thead); const tbody=document.createElement('tbody');
-    data.forEach((row,ri)=>{ const tr=document.createElement('tr'); const rn=document.createElement('th'); rn.className='row-number'; rn.textContent=ri+1; tr.appendChild(rn);
+    data.forEach((row,ri)=>{ const tr=document.createElement('tr'); const rn=document.createElement('th'); rn.className='row-number'; rn.textContent=ri+1;
+      rn.addEventListener('mousedown',e=>{e.preventDefault(); selecting=true; setSelection(ri,0,ri,width-1,'row',false);});
+      tr.appendChild(rn);
       columns.forEach((c,ci)=>{ const td=document.createElement('td'); td.contentEditable='true'; td.textContent=row[ci]??''; td.dataset.r=ri; td.dataset.c=ci;
+        td.addEventListener('mousedown',e=>{
+          if(e.shiftKey){ e.preventDefault(); setSelection(selection.r1,selection.c1,ri,ci,'range',true); }
+          else { selecting=true; setSelection(ri,ci,ri,ci,'cell',true); }
+        });
+        td.addEventListener('mouseenter',()=>{ if(selecting){ selection.r2=ri; selection.c2=ci; paintSelection(); } });
         td.addEventListener('focus',()=>saveHistory());
         td.addEventListener('input',()=>{data[ri][ci]=td.textContent; if(options.onchange) options.onchange();});
         td.addEventListener('keydown',e=>{ if(e.key==='Tab'){e.preventDefault(); const n=td.parentElement.children[ci+2]||tbody.children[ri+1]?.children[ci+1]; if(n) n.focus();} });
         td.addEventListener('paste',e=>{ const text=(e.clipboardData||window.clipboardData).getData('text'); if(text.includes('\t')||text.includes('\n')){ e.preventDefault(); const rows=text.replace(/\r/g,'').split('\n').filter((x,i,a)=>x!==''||i<a.length-1).map(x=>x.split('\t')); saveHistory(); rows.forEach((rr,dr)=>rr.forEach((v,dc)=>{ const r=ri+dr,cx=ci+dc; while(data.length<=r)data.push(new Array(width).fill('')); while(data[r].length<width)data[r].push(''); data[r][cx]=v;})); render(); if(options.onchange)options.onchange(); }});
         tr.appendChild(td); }); tbody.appendChild(tr); });
     wrap.appendChild(tbody); el.appendChild(wrap);
+    paintSelection();
   }
+  el.addEventListener('mouseup',()=>{selecting=false;});
   render();
   return [{ getData:()=>data.map(r=>r.slice()), destroy:()=>{el.innerHTML='';el.classList.remove('formeasy-offline-grid');}, download:()=>downloadCSVFile((options.csvFileName||'formeasy')+'.csv',[columns.map(c=>c.title)].concat(data)), selectCell:(c,r)=>{ const td=el.querySelector(`td[data-r="${r}"][data-c="${c}"]`); if(td)td.focus(); }, undo:()=>{if(history.length){future.push(snapshot());const prev=history.pop();data.splice(0,data.length,...prev);render();}}, redo:()=>{if(future.length){history.push(snapshot());const next=future.pop();data.splice(0,data.length,...next);render();}} }];
 }
