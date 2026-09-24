@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.2.1
+
+**CSV Editor & Spreadsheet Improvements**
+- Improved the built-in CSV editor for a more spreadsheet-like editing experience.
+- Added support for selecting individual cells, cell ranges, entire rows, and entire columns.
+- Improved keyboard-based cell navigation.
+- Added range selection using Shift + Arrow keys.
+- Improved Delete/Backspace behavior for clearing selected cells, rows, columns, and ranges.
+- Added support for common spreadsheet keyboard actions, including:
+    * Arrow-key navigation
+    * Tab / Shift + Tab navigation
+    * Enter / Shift + Enter navigation
+    * Shift + Arrow range selection
+    * Copy / Cut / Paste
+    * Undo / Redo shortcuts
+- Improved selection behavior when working with whole rows and columns.
+- Improved compatibility between the CSV editor’s spreadsheet engine and its offline fallback editor.
+- Improved touch usability for tablet-based editing.
+
+**SF9 Generation**
+- Improved learner, adviser, and school head name formatting.
+- Names are automatically formatted in uppercase while preserving recognized degree-title capitalization:
+    * EDD → EdD
+    * PHD → PhD
+    * PSYD → PsyD
+    * EDS → EdS
+    * DED → DEd
+- Adjusted the SF9 certification statement to use the intended two-line layout:
+    * This is to certify that the above-named learner has satisfactorily completed the requirements for the
+    * grade level indicated.
+
+**General**
+- Improved spreadsheet editing workflow, particularly on iPad and other touch devices.
+- Minor UI and usability refinements.
+- No changes to the underlying SF9 grading computation or CSV data structure.
+
 ## v1.2.0
 
 **Remarksand Comments System**
