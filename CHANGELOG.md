@@ -2,6 +2,21 @@
 
 ## v1.2.0
 
+**Remarksand Comments System**
+- Mapping:
+- > 97 → Comment 1
+75–97 → Comments 2–61 distributed across the range
+< 75 → Comment 62
+- Default automatic suggestion language is English.
+- English / Filipino toggle changes the language of automatic suggestions.
+- Teacher can still:
+choose any preset remark,
+switch an individual term's language,
+enter a custom remark.
+- The automatically selected suggestion is actually passed into the printed SF9 PDF.
+- Existing saved states are protected: missing remarkSuggestionLang is automatically restored to English.
+- Cedarville Cursive is now used for the teacher comments only, in the updated `index.html` below. I generated a test PDF from it and checked the back page. The comments render in cursive, and the rest of the form is still Bookman.
+
 **Spreadsheet CSV Editor**
 - In-app Excel-style CSV editor for Roster, Grades, and Attendance.
 - Editing of existing and imported FormEasy data.
