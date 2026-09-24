@@ -277,14 +277,21 @@ main{ padding:26px 30px 40px; min-width:0; }
 .formeasy-offline-grid table{ border-collapse:separate; border-spacing:0; min-width:100%; width:max-content; font-size:12px; }
 .formeasy-offline-grid th,.formeasy-offline-grid td{ min-width:110px; height:28px; padding:5px 7px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); white-space:pre; }
 .formeasy-offline-grid th{ position:sticky; top:0; z-index:2; background:var(--panel); font-weight:700; }
-.formeasy-offline-grid td{ background:var(--card); outline:none; }
+.formeasy-offline-grid td{ background:var(--card); outline:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.formeasy-offline-grid td.editing{ -webkit-user-select:text; user-select:text; }
+.formeasy-offline-grid{ touch-action:manipulation; }
+.formeasy-offline-grid:focus{ outline:none; }
 .formeasy-offline-grid td:focus{ box-shadow:inset 0 0 0 2px var(--accent); }
-.formeasy-offline-grid td.selection-active{ background:rgba(92,86,220,.14) !important; }
-.formeasy-offline-grid td.selection-anchor{ box-shadow:inset 0 0 0 2px var(--accent); }
-.formeasy-offline-grid td.selection-edge-top{ border-top:2px solid var(--accent) !important; }
-.formeasy-offline-grid td.selection-edge-bottom{ border-bottom:2px solid var(--accent) !important; }
-.formeasy-offline-grid td.selection-edge-left{ border-left:2px solid var(--accent) !important; }
-.formeasy-offline-grid td.selection-edge-right{ border-right:2px solid var(--accent) !important; }
+/* --accent was never defined in this app, so every outline below used to be invalid (only a faint tint showed) */
+#csvEditorGrid{ --accent:var(--purple); }
+.formeasy-offline-grid td{ --et:transparent; --eb:transparent; --el:transparent; --er:transparent; --ea:transparent; }
+.formeasy-offline-grid td.selection-active{ box-shadow:inset 0 2px 0 0 var(--et), inset 0 -2px 0 0 var(--eb), inset 2px 0 0 0 var(--el), inset -2px 0 0 0 var(--er), inset 0 0 0 2px var(--ea); }
+.formeasy-offline-grid td.selection-edge-top{ --et:var(--accent); }
+.formeasy-offline-grid td.selection-edge-bottom{ --eb:var(--accent); }
+.formeasy-offline-grid td.selection-edge-left{ --el:var(--accent); }
+.formeasy-offline-grid td.selection-edge-right{ --er:var(--accent); }
+.formeasy-offline-grid td.selection-anchor{ --ea:var(--accent); }
+.formeasy-offline-grid td.selection-active{ background:rgba(92,86,220,.22) !important; background:color-mix(in srgb, var(--accent) 24%, var(--card)) !important; }
 .formeasy-offline-grid td.editing{ background:var(--input-bg) !important; box-shadow:inset 0 0 0 2px var(--accent); }
 .formeasy-offline-grid td:focus{ outline:none; }
 .formeasy-offline-grid th.selection-header{ background:rgba(92,86,220,.18) !important; }
@@ -1713,290 +1720,403 @@ function createOfflineSpreadsheet(el, options){
   const columns=(options.columns||[]).map(c=>Object.assign({},c));
   const width=Math.max(columns.length, ...data.map(r=>r.length), 1);
   while(columns.length<width) columns.push({type:'text',title:'Column '+(columns.length+1)});
-  while(data.length<Math.max(data.length,20)) data.push(new Array(width).fill(''));
+  while(data.length<20) data.push(new Array(width).fill(''));
   data.forEach(r=>{ while(r.length<width) r.push(''); });
   el.classList.add('formeasy-offline-grid');
   el.tabIndex=0;
   el.setAttribute('role','grid');
 
-  let history=[],future=[];
-  let selection={anchorR:0,anchorC:0,focusR:0,focusC:0,mode:'cell'};
-  let selecting=false, editing=false, suppressHistory=false;
+  /* One lifetime controller: every listener below is removed by destroy(), so re-opening the
+     editor never stacks a second set of handlers on the same container. */
+  const life=new AbortController(), sig={signal:life.signal};
+  let dragCtl=null;
+
+  /* ---- state ---- */
+  let history=[], future=[];                       // data snapshots; only real data changes enter these
+  let selection={anchorRow:0,anchorColumn:0,activeRow:0,activeColumn:0,selectionType:'cell'};
+  let editCtx=null;                                // {r,c,before,original} while a cell's text is being edited
+  let lastTap=null, painted=null;
+  let cells=[], rowHeads=[], colHeads=[], corner=null;
 
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-  function snapshot(){ return data.map(r=>r.slice()); }
-  function normalizeSelection(){
-    return {
-      r1:Math.min(selection.anchorR,selection.focusR),
-      c1:Math.min(selection.anchorC,selection.focusC),
-      r2:Math.max(selection.anchorR,selection.focusR),
-      c2:Math.max(selection.anchorC,selection.focusC),
-    };
+  const lastRow=()=>data.length-1, lastCol=()=>width-1;
+  const snapshot=()=>data.map(r=>r.slice());
+  const fire=()=>{ if(options.onchange) options.onchange(); };
+  function focusGrid(){ try{ el.focus({preventScroll:true}); }catch(e){ try{ el.focus(); }catch(e2){} } }
+
+  /* ---- selection model ---- */
+  function bounds(){
+    const s=selection, R=lastRow(), C=lastCol();
+    const r1=Math.min(s.anchorRow,s.activeRow), r2=Math.max(s.anchorRow,s.activeRow);
+    const c1=Math.min(s.anchorColumn,s.activeColumn), c2=Math.max(s.anchorColumn,s.activeColumn);
+    if(s.selectionType==='row') return {r1,r2,c1:0,c2:C};
+    if(s.selectionType==='column') return {r1:0,r2:R,c1,c2};
+    if(s.selectionType==='all') return {r1:0,r2:R,c1:0,c2:C};
+    return {r1,r2,c1,c2};
   }
-  function activeCell(){
-    return {
-      r:clamp(selection.focusR,0,Math.max(0,data.length-1)),
-      c:clamp(selection.focusC,0,Math.max(0,width-1))
-    };
-  }
-  function cellEl(r,c){ return el.querySelector(`td[data-r="${r}"][data-c="${c}"]`); }
-  function focusGrid(){ try{ el.focus({preventScroll:true}); }catch(e){ try{el.focus();}catch(e2){} } }
-  function paintSelection(){
-    const s=normalizeSelection();
-    el.querySelectorAll('td[data-r][data-c]').forEach(td=>{
-      const r=+td.dataset.r,c=+td.dataset.c;
-      td.classList.toggle('selection-active',r>=s.r1&&r<=s.r2&&c>=s.c1&&c<=s.c2);
-      td.classList.toggle('selection-anchor',r===selection.anchorR&&c===selection.anchorC);
-      td.classList.toggle('selection-focus',r===selection.focusR&&c===selection.focusC);
-      td.classList.toggle('selection-edge-top',r===s.r1&&c>=s.c1&&c<=s.c2);
-      td.classList.toggle('selection-edge-bottom',r===s.r2&&c>=s.c1&&c<=s.c2);
-      td.classList.toggle('selection-edge-left',c===s.c1&&r>=s.r1&&r<=s.r2);
-      td.classList.toggle('selection-edge-right',c===s.c2&&r>=s.r1&&r<=s.r2);
-    });
-    el.querySelectorAll('thead th[data-c]').forEach(th=>{
-      const c=+th.dataset.c; th.classList.toggle('selection-header',c>=s.c1&&c<=s.c2);
-    });
-    el.querySelectorAll('tbody th.row-number[data-r]').forEach(th=>{
-      const r=+th.dataset.r; th.classList.toggle('selection-header',r>=s.r1&&r<=s.r2);
-    });
-    const corner=el.querySelector('thead th.row-number.corner');
-    if(corner) corner.classList.toggle('selection-header',s.r1===0&&s.r2===data.length-1&&s.c1===0&&s.c2===width-1);
-  }
-  function setSelection(anchorR,anchorC,focusR=anchorR,focusC=anchorC,mode='cell',focus=false){
+  function setSelection(ar,ac,r,c,type){
     selection={
-      anchorR:clamp(anchorR,0,data.length-1),
-      anchorC:clamp(anchorC,0,width-1),
-      focusR:clamp(focusR,0,data.length-1),
-      focusC:clamp(focusC,0,width-1),
-      mode
+      anchorRow:clamp(ar,0,lastRow()), anchorColumn:clamp(ac,0,lastCol()),
+      activeRow:clamp(r,0,lastRow()),  activeColumn:clamp(c,0,lastCol()),
+      selectionType:type||'cell'
     };
     paintSelection();
-    if(focus){
-      const td=cellEl(selection.focusR,selection.focusC);
-      if(td){
-        td.focus();
-        try{td.scrollIntoView({block:'nearest',inline:'nearest'});}catch(e){}
-      }else focusGrid();
+  }
+  function extendTo(r,c){                          // anchor stays; only the active end moves
+    selection.activeRow=clamp(r,0,lastRow()); selection.activeColumn=clamp(c,0,lastCol());
+    selection.selectionType=(selection.activeRow===selection.anchorRow&&selection.activeColumn===selection.anchorColumn)?'cell':'range';
+    paintSelection();
+  }
+  function selectAll(){ setSelection(0,0,0,0,'all'); }
+
+  /* Updates classes only on cells whose state can have changed (old + new rectangle). No DOM rebuild. */
+  function paintSelection(){
+    const b=bounds(), t=selection.selectionType;
+    const u=painted?{r1:Math.min(painted.r1,b.r1),r2:Math.max(painted.r2,b.r2),c1:Math.min(painted.c1,b.c1),c2:Math.max(painted.c2,b.c2)}
+                   :{r1:0,r2:lastRow(),c1:0,c2:lastCol()};
+    const marks=(t==='cell'||t==='range');
+    for(let r=u.r1;r<=u.r2;r++){
+      const row=cells[r]; if(!row) continue;
+      const rIn=r>=b.r1&&r<=b.r2;
+      for(let c=u.c1;c<=u.c2;c++){
+        const td=row[c]; if(!td) continue;
+        const inside=rIn&&c>=b.c1&&c<=b.c2, cl=td.classList;
+        cl.toggle('selection-active',inside);
+        cl.toggle('selection-anchor',marks&&r===selection.anchorRow&&c===selection.anchorColumn);
+        cl.toggle('selection-focus',marks&&r===selection.activeRow&&c===selection.activeColumn);
+        cl.toggle('selection-edge-top',inside&&r===b.r1);
+        cl.toggle('selection-edge-bottom',inside&&r===b.r2);
+        cl.toggle('selection-edge-left',inside&&c===b.c1);
+        cl.toggle('selection-edge-right',inside&&c===b.c2);
+      }
+    }
+    const hiRows=t!=='column', hiCols=t!=='row';
+    for(let r=u.r1;r<=u.r2;r++) if(rowHeads[r]) rowHeads[r].classList.toggle('selection-header',hiRows&&r>=b.r1&&r<=b.r2);
+    for(let c=u.c1;c<=u.c2;c++) if(colHeads[c]) colHeads[c].classList.toggle('selection-header',hiCols&&c>=b.c1&&c<=b.c2);
+    if(corner) corner.classList.toggle('selection-header',t==='all');
+    painted=b;
+  }
+  function ensureVisible(r,c){                     // keep the active cell clear of the sticky headers
+    const headH=(colHeads[0]&&colHeads[0].offsetHeight)||0, numW=(corner&&corner.offsetWidth)||0;
+    const er=el.getBoundingClientRect();
+    if(r!=null&&cells[r]&&cells[r][0]){
+      const tr=cells[r][0].getBoundingClientRect();
+      const top=er.top+el.clientTop+headH, bottom=er.top+el.clientTop+el.clientHeight;
+      if(tr.top<top) el.scrollTop-=top-tr.top; else if(tr.bottom>bottom) el.scrollTop+=tr.bottom-bottom;
+    }
+    if(c!=null&&cells[0]&&cells[0][c]){
+      const tc=cells[0][c].getBoundingClientRect();
+      const left=er.left+el.clientLeft+numW, right=er.left+el.clientLeft+el.clientWidth;
+      if(tc.left<left) el.scrollLeft-=left-tc.left; else if(tc.right>right) el.scrollLeft+=tc.right-right;
     }
   }
-  function saveHistory(){
-    if(suppressHistory) return;
-    history.push(snapshot()); if(history.length>50) history.shift(); future=[];
+
+  /* ---- data mutation helpers ---- */
+  function saveHistory(before){                    // call BEFORE a data mutation (never for selection changes)
+    history.push(before||snapshot()); if(history.length>50) history.shift();
+    future=[];
   }
-  function ensureRow(r){
-    while(data.length<=r) data.push(new Array(width).fill(''));
-    while(data[r].length<width) data[r].push('');
-  }
-  function enterEdit(td, initialChar){
-    if(!td) return;
-    editing=true;
-    td.contentEditable='true';
-    td.classList.add('editing');
-    td.focus();
-    if(initialChar!=null){
-      td.textContent=initialChar;
-      const range=document.createRange(), sel=window.getSelection();
-      range.selectNodeContents(td); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
-      data[+td.dataset.r][+td.dataset.c]=initialChar;
-      if(options.onchange) options.onchange();
-    }else{
-      try{ const range=document.createRange(), sel=window.getSelection(); range.selectNodeContents(td); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); }catch(e){}
+  function refreshCells(b){                        // sync text of existing cells from data (no rebuild)
+    b=b||{r1:0,r2:lastRow(),c1:0,c2:lastCol()};
+    for(let r=b.r1;r<=b.r2;r++) for(let c=b.c1;c<=b.c2;c++){
+      const td=cells[r]&&cells[r][c]; if(!td) continue;
+      const v=data[r][c]==null?'':String(data[r][c]);
+      if(td.textContent!==v) td.textContent=v;
     }
   }
-  function exitEdit(){
-    const td=el.querySelector('td.editing');
-    if(td){ td.classList.remove('editing'); td.contentEditable='false'; }
-    editing=false;
+  function ensureRow(r){ while(data.length<=r) data.push(new Array(width).fill('')); }
+  function clearSelection(){
+    const b=bounds(); let any=false;
+    for(let r=b.r1;r<=b.r2&&!any;r++) for(let c=b.c1;c<=b.c2;c++) if(String(data[r][c]==null?'':data[r][c])!==''){ any=true; break; }
+    if(!any) return;
+    saveHistory();
+    for(let r=b.r1;r<=b.r2;r++) for(let c=b.c1;c<=b.c2;c++) data[r][c]='';
+    refreshCells(b); fire();
   }
-  function moveSelection(dr,dc,extend){
-    const a=activeCell();
-    const nr=clamp(a.r+dr,0,data.length-1), nc=clamp(a.c+dc,0,width-1);
-    if(extend){
-      // Keep the original anchor fixed and move only the active/focus cell.
-      selection.focusR=nr; selection.focusC=nc;
-      selection.mode='range';
-    }else{
-      selection={anchorR:nr,anchorC:nc,focusR:nr,focusC:nc,mode:'cell'};
-    }
-    exitEdit(); paintSelection();
-    const td=cellEl(nr,nc);
-    if(td){ td.focus(); try{td.scrollIntoView({block:'nearest',inline:'nearest'});}catch(e){} }
-  }
-  function clearSelected(){
-    const s=normalizeSelection(); saveHistory();
-    for(let r=s.r1;r<=s.r2;r++){
-      ensureRow(r);
-      for(let c=s.c1;c<=s.c2;c++) data[r][c]='';
-    }
-    const keepMode=selection.mode;
-    render();
-    setSelection(s.r1,s.c1,s.r2,s.c2,keepMode==='cell'?'cell':keepMode==='row'?'row':keepMode==='column'?'column':'range',true);
-    if(options.onchange) options.onchange();
-  }
-  function copySelected(cut){
-    const s=normalizeSelection(), out=[];
-    for(let r=s.r1;r<=s.r2;r++){
-      const row=[];
-      for(let c=s.c1;c<=s.c2;c++) row.push(data[r]?.[c]??'');
+
+  /* ---- clipboard (tab-delimited, Excel/Numbers/Sheets compatible) ---- */
+  const tsvField=v=>/[\t\n\r"]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
+  function selectionToTSV(){
+    const b=bounds(), out=[];
+    for(let r=b.r1;r<=b.r2;r++){
+      const row=[]; for(let c=b.c1;c<=b.c2;c++) row.push(tsvField(String(data[r][c]==null?'':data[r][c])));
       out.push(row.join('\t'));
     }
-    const txt=out.join('\n');
-    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).catch(()=>{});
-    try{
-      const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed';ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-    }catch(e){}
-    if(cut) clearSelected();
+    return out.join('\n');
   }
-  function pasteInto(startR,startC,text){
-    const rows=text.replace(/\r/g,'').split('\n');
-    if(rows.length && rows[rows.length-1]==='') rows.pop();
-    if(!rows.length) return;
+  function parseTSV(text){
+    text=String(text).replace(/\r\n?/g,'\n');
+    const rows=[]; let row=[], field='', inQ=false, fieldStart=true;
+    for(let i=0;i<text.length;i++){
+      const ch=text[i];
+      if(inQ){
+        if(ch==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQ=false; }
+        else field+=ch;
+      }else if(ch==='"'&&fieldStart){ inQ=true; fieldStart=false; }
+      else if(ch==='\t'){ row.push(field); field=''; fieldStart=true; }
+      else if(ch==='\n'){ row.push(field); rows.push(row); row=[]; field=''; fieldStart=true; }
+      else{ field+=ch; fieldStart=false; }
+    }
+    row.push(field); rows.push(row);
+    if(rows.length>1){ const l=rows[rows.length-1]; if(l.length===1&&l[0]==='') rows.pop(); }
+    return rows;
+  }
+  function pasteGrid(grid){                        // ONE undo state per paste
+    if(!grid.length) return;
+    const b=bounds(), writes=[];
+    const fill=grid.length===1&&grid[0].length===1&&(b.r2>b.r1||b.c2>b.c1);
+    let target;
+    if(fill){
+      for(let r=b.r1;r<=b.r2;r++) for(let c=b.c1;c<=b.c2;c++) writes.push([r,c,grid[0][0]]);
+      target=b;
+    }else{
+      grid.forEach((line,dr)=>line.forEach((v,dc)=>{ const c=b.c1+dc; if(c<=lastCol()) writes.push([b.r1+dr,c,v]); }));
+      const cols=Math.max(...grid.map(l=>l.length));
+      target={r1:b.r1,c1:b.c1,r2:b.r1+grid.length-1,c2:Math.min(b.c1+cols-1,lastCol())};
+    }
+    if(!writes.some(w=>{ const cur=data[w[0]]&&data[w[0]][w[1]]; return String(cur==null?'':cur)!==w[2]; })) return;
     saveHistory();
-    rows.forEach((line,dr)=>line.split('\t').forEach((v,dc)=>{
-      const r=startR+dr,c=startC+dc; ensureRow(r); if(c<width) data[r][c]=v;
-    }));
-    render();
-    const endR=clamp(startR+rows.length-1,0,data.length-1), maxCols=Math.max(...rows.map(x=>x.split('\t').length));
-    const endC=clamp(startC+maxCols-1,0,width-1);
-    setSelection(startR,startC,endR,endC,'range',true);
-    if(options.onchange) options.onchange();
+    writes.forEach(w=>{ ensureRow(w[0]); data[w[0]][w[1]]=w[2]; });
+    if(cells.length!==data.length) render(); else refreshCells(target);
+    const one=target.r1===target.r2&&target.c1===target.c2;
+    setSelection(target.r1,target.c1,target.r2,target.c2,one?'cell':'range');
+    ensureVisible(target.r2,target.c2); fire();
   }
+
+  /* ---- undo / redo (single history mechanism) ---- */
+  function restore(snap){
+    data.length=0; snap.forEach(r=>data.push(r.slice()));
+    if(cells.length!==data.length) render(); else refreshCells();
+    setSelection(selection.anchorRow,selection.anchorColumn,selection.activeRow,selection.activeColumn,selection.selectionType);
+    fire();
+  }
+  function undo(){ if(editCtx||!history.length) return; future.push(snapshot()); restore(history.pop()); }
+  function redo(){ if(editCtx||!future.length) return; history.push(snapshot()); restore(future.pop()); }
+
+  /* ---- in-cell editing ---- */
+  function caretToEnd(td){
+    try{ const rg=document.createRange(), s=window.getSelection(); rg.selectNodeContents(td); rg.collapse(false); s.removeAllRanges(); s.addRange(rg); }catch(e){}
+  }
+  function enterEdit(r,c,initial){
+    if(editCtx) return;
+    lastTap=null;
+    const td=cells[r]&&cells[r][c]; if(!td) return;
+    setSelection(r,c,r,c,'cell');
+    editCtx={r,c,before:snapshot(),original:data[r][c]==null?'':String(data[r][c])};
+    td.contentEditable='true'; td.classList.add('editing');
+    try{ td.focus({preventScroll:true}); }catch(e){ td.focus(); }
+    if(initial!=null){ td.textContent=initial; data[r][c]=initial; fire(); }
+    caretToEnd(td);
+  }
+  function commitEdit(refocus){                    // one undo state per edit, and only if the text changed
+    if(!editCtx) return;
+    const ctx=editCtx; editCtx=null; lastTap=null;
+    const td=cells[ctx.r]&&cells[ctx.r][ctx.c];
+    const val=td?(td.textContent||''):ctx.original;
+    if(td){ td.classList.remove('editing'); td.contentEditable='false'; }
+    data[ctx.r][ctx.c]=val;
+    if(val!==ctx.original){ saveHistory(ctx.before); fire(); }
+    if(refocus!==false) focusGrid();
+  }
+  function cancelEdit(){
+    if(!editCtx) return;
+    const ctx=editCtx; editCtx=null; lastTap=null;
+    const td=cells[ctx.r]&&cells[ctx.r][ctx.c];
+    if(td){ td.textContent=ctx.original; td.classList.remove('editing'); td.contentEditable='false'; }
+    data[ctx.r][ctx.c]=ctx.original; fire(); focusGrid();
+  }
+
+  /* ---- keyboard navigation ---- */
+  function moveActive(dr,dc,extend){
+    const t=selection.selectionType;
+    if(extend){
+      if(t==='row'){ if(!dr) return; selection.activeRow=clamp(selection.activeRow+dr,0,lastRow()); paintSelection(); ensureVisible(selection.activeRow,null); return; }
+      if(t==='column'){ if(!dc) return; selection.activeColumn=clamp(selection.activeColumn+dc,0,lastCol()); paintSelection(); ensureVisible(null,selection.activeColumn); return; }
+      if(t==='all') return;
+      extendTo(selection.activeRow+dr,selection.activeColumn+dc);
+    }else{
+      const r=clamp(selection.activeRow+dr,0,lastRow()), c=clamp(selection.activeColumn+dc,0,lastCol());
+      setSelection(r,c,r,c,'cell');
+    }
+    ensureVisible(selection.activeRow,selection.activeColumn);
+  }
+  function tabMove(back){
+    let r=selection.activeRow, c=selection.activeColumn+(back?-1:1);
+    if(c<0){ r--; c=lastCol(); } else if(c>lastCol()){ r++; c=0; }
+    if(r<0||r>lastRow()) return false;             // edge of the grid: let focus leave normally
+    setSelection(r,c,r,c,'cell'); ensureVisible(r,c); return true;
+  }
+  let copySeen=false, pasteSeen=false;
+  function pasteText(text){ if(text!=='') pasteGrid(parseTSV(text)); }
+
+  /* THE keyboard handler for the offline grid. Nothing else listens for keys inside it. */
+  el.addEventListener('keydown',e=>{
+    if(e.isComposing||e.keyCode===229) return;
+    const key=e.key, mod=e.ctrlKey||e.metaKey;
+    if(key==='Shift'||key==='Control'||key==='Meta'||key==='Alt') return;   // modifiers alone never do anything
+
+    if(editCtx){                                    // typing in a cell: the browser owns the text
+      if(key==='Escape'){ e.preventDefault(); e.stopPropagation(); cancelEdit(); return; }
+      if(key==='Enter'&&!e.altKey){ e.preventDefault(); commitEdit(true); moveActive(e.shiftKey?-1:1,0,false); return; }
+      if(key==='Tab'){ e.preventDefault(); commitEdit(true); tabMove(e.shiftKey); return; }
+      return;                                       // arrows, Backspace, Delete, Ctrl/Cmd+Z, Ctrl/Cmd+A ... all native
+    }
+
+    if(mod&&!e.altKey){
+      const k=key.toLowerCase();
+      if(k==='z'){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }   // Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z
+      if(k==='y'){ e.preventDefault(); redo(); return; }                                // Ctrl/Cmd+Y
+      if(k==='a'){ e.preventDefault(); selectAll(); return; }
+      if(k==='c'||k==='x'){                         // copy/cut events do the work; this is a fallback for browsers that skip them
+        copySeen=false;
+        setTimeout(()=>{ if(copySeen||editCtx) return; try{ navigator.clipboard.writeText(selectionToTSV()).catch(()=>{}); }catch(err){} if(k==='x') clearSelection(); },80);
+        return;
+      }
+      if(k==='v'){
+        pasteSeen=false;
+        setTimeout(()=>{ if(pasteSeen||editCtx) return; try{ navigator.clipboard.readText().then(pasteText).catch(()=>{}); }catch(err){} },80);
+        return;
+      }
+      return;
+    }
+    if(e.altKey) return;
+
+    if(key==='Delete'||key==='Backspace'){ e.preventDefault(); clearSelection(); return; }
+    if(key==='ArrowUp'||key==='ArrowDown'||key==='ArrowLeft'||key==='ArrowRight'){
+      e.preventDefault();
+      moveActive(key==='ArrowUp'?-1:key==='ArrowDown'?1:0, key==='ArrowLeft'?-1:key==='ArrowRight'?1:0, e.shiftKey);
+      return;
+    }
+    if(key==='Enter'){ e.preventDefault(); moveActive(e.shiftKey?-1:1,0,false); return; }
+    if(key==='Tab'){ if(tabMove(e.shiftKey)) e.preventDefault(); return; }
+    if(key==='F2'){ e.preventDefault(); enterEdit(selection.activeRow,selection.activeColumn); return; }
+    if(key.length===1){ e.preventDefault(); enterEdit(selection.activeRow,selection.activeColumn,key); return; }
+  },sig);
+
+  el.addEventListener('copy',e=>{
+    if(editCtx) return;                             // copying text inside a cell stays native
+    e.preventDefault(); e.clipboardData.setData('text/plain',selectionToTSV()); copySeen=true;
+  },sig);
+  el.addEventListener('cut',e=>{
+    if(editCtx) return;
+    e.preventDefault(); e.clipboardData.setData('text/plain',selectionToTSV()); copySeen=true; clearSelection();
+  },sig);
+  el.addEventListener('paste',e=>{
+    pasteSeen=true;
+    const text=(e.clipboardData||window.clipboardData).getData('text');
+    if(text==='') return;
+    const grid=parseTSV(text);
+    if(editCtx){
+      if(grid.length===1&&grid[0].length===1){     // plain single value into the cell being edited
+        e.preventDefault(); document.execCommand('insertText',false,grid[0][0].replace(/[\r\n]+/g,' ')); return;
+      }
+      commitEdit(true);
+    }
+    e.preventDefault(); pasteGrid(grid);
+  },sig);
+  el.addEventListener('input',e=>{
+    if(!editCtx) return;
+    const td=cells[editCtx.r]&&cells[editCtx.r][editCtx.c];
+    if(td&&td.contains(e.target)){ data[editCtx.r][editCtx.c]=td.textContent||''; fire(); }
+  },sig);
+  el.addEventListener('focusout',e=>{               // clicking a toolbar button while editing keeps the text
+    if(!editCtx) return;
+    const td=cells[editCtx.r]&&cells[editCtx.r][editCtx.c];
+    if(e.target===td) commitEdit(false);
+  },sig);
+
+  /* ---- pointer: click, shift+click, headers, drag ---- */
+  function startDrag(mode){
+    if(dragCtl) dragCtl.abort();
+    dragCtl=new AbortController(); const ds={signal:dragCtl.signal};
+    const stop=()=>{ if(dragCtl){ dragCtl.abort(); dragCtl=null; } };
+    document.addEventListener('pointermove',ev=>{
+      const er=el.getBoundingClientRect(), headH=(colHeads[0]&&colHeads[0].offsetHeight)||0, numW=(corner&&corner.offsetWidth)||0;
+      if(ev.clientY>er.bottom-24) el.scrollTop+=18; else if(ev.clientY<er.top+headH+8) el.scrollTop-=18;
+      if(ev.clientX>er.right-24) el.scrollLeft+=18; else if(ev.clientX<er.left+numW+8) el.scrollLeft-=18;
+      const t=document.elementFromPoint(ev.clientX,ev.clientY); if(!t||!t.closest) return;
+      const cT=t.closest('td[data-r]'), rT=t.closest('th.row-number[data-r]'), hT=t.closest('th[data-c]');
+      if(mode==='cell'){ if(cT) extendTo(+cT.dataset.r,+cT.dataset.c); }
+      else if(mode==='row'){ const r=cT?+cT.dataset.r:rT?+rT.dataset.r:null; if(r!=null){ selection.activeRow=r; paintSelection(); } }
+      else if(mode==='column'){ const c=cT?+cT.dataset.c:hT?+hT.dataset.c:null; if(c!=null){ selection.activeColumn=c; paintSelection(); } }
+    },ds);
+    document.addEventListener('pointerup',stop,ds);
+    document.addEventListener('pointercancel',stop,ds);
+  }
+  el.addEventListener('pointerdown',e=>{
+    const t=e.target.closest&&e.target.closest('td[data-r],th.row-number,th[data-c]');
+    if(!t||!el.contains(t)) return;
+    const isCell=t.matches('td[data-r]');
+    if(editCtx&&isCell&&t===cells[editCtx.r][editCtx.c]) return;        // let the caret move inside the cell being edited
+    const secondary=e.pointerType==='mouse'&&e.button!==0, fine=e.pointerType!=='touch';
+    if(fine&&!secondary) e.preventDefault();                               // no native text selection / drag while selecting cells
+    if(editCtx) commitEdit(false);
+    focusGrid();
+    if(secondary){
+      if(isCell){ const r=+t.dataset.r, c=+t.dataset.c, b=bounds(); if(!(r>=b.r1&&r<=b.r2&&c>=b.c1&&c<=b.c2)) setSelection(r,c,r,c,'cell'); }
+      return;
+    }
+    if(t.classList.contains('corner')){ lastTap=null; selectAll(); return; }
+    if(isCell){
+      const r=+t.dataset.r, c=+t.dataset.c;
+      if(e.shiftKey){ lastTap=null; extendTo(r,c); }
+      else{
+        const now=Date.now();
+        if(lastTap&&lastTap.r===r&&lastTap.c===c&&now-lastTap.t<400){ lastTap=null; enterEdit(r,c); return; }   // double click / double tap
+        lastTap={r,c,t:now}; setSelection(r,c,r,c,'cell');
+      }
+      if(fine) startDrag('cell');
+    }else if(t.classList.contains('row-number')){
+      lastTap=null; const r=+t.dataset.r;
+      const ar=(e.shiftKey&&selection.selectionType==='row')?selection.anchorRow:(e.shiftKey?selection.activeRow:r);
+      setSelection(ar,0,r,0,'row');
+      if(fine) startDrag('row');
+    }else{
+      lastTap=null; const c=+t.dataset.c;
+      const ac=(e.shiftKey&&selection.selectionType==='column')?selection.anchorColumn:(e.shiftKey?selection.activeColumn:c);
+      setSelection(0,ac,0,c,'column');
+      if(fine) startDrag('column');
+    }
+  },sig);
+
+  /* ---- rendering (used for the first paint and when the row count changes) ---- */
   function render(){
-    el.innerHTML='';
-    const wrap=document.createElement('table');
-    const thead=document.createElement('thead');
-    const hr=document.createElement('tr');
-
-    const corner=document.createElement('th');
-    corner.className='row-number corner'; corner.textContent='#'; corner.tabIndex=-1;
-    corner.addEventListener('pointerdown',e=>{
-      e.preventDefault(); selecting=false; exitEdit();
-      setSelection(0,0,data.length-1,width-1,'all',false); focusGrid();
-    });
+    const sTop=el.scrollTop, sLeft=el.scrollLeft;
+    el.innerHTML=''; cells=[]; rowHeads=[]; colHeads=[]; painted=null;
+    const table=document.createElement('table'), thead=document.createElement('thead'), hr=document.createElement('tr');
+    corner=document.createElement('th'); corner.className='row-number corner'; corner.textContent='#';
     hr.appendChild(corner);
-
     columns.forEach((c,i)=>{
       const th=document.createElement('th'); th.dataset.c=i; th.textContent=c.title||('Column '+(i+1)); th.style.minWidth=(c.width||110)+'px';
-      th.addEventListener('pointerdown',e=>{
-        e.preventDefault(); selecting=true; exitEdit();
-        setSelection(0,i,data.length-1,i,'column',false); focusGrid();
-      });
-      th.addEventListener('pointerenter',()=>{
-        if(selecting){ selection.focusR=data.length-1; selection.focusC=i; selection.mode='column'; paintSelection(); }
-      });
-      hr.appendChild(th);
+      colHeads[i]=th; hr.appendChild(th);
     });
-    thead.appendChild(hr); wrap.appendChild(thead);
-
+    thead.appendChild(hr); table.appendChild(thead);
     const tbody=document.createElement('tbody');
     data.forEach((row,ri)=>{
       const tr=document.createElement('tr');
-      const rn=document.createElement('th'); rn.className='row-number'; rn.dataset.r=ri; rn.textContent=ri+1; rn.tabIndex=-1;
-      rn.addEventListener('pointerdown',e=>{
-        e.preventDefault(); selecting=true; exitEdit();
-        setSelection(ri,0,ri,width-1,'row',false); focusGrid();
-      });
-      rn.addEventListener('pointerenter',()=>{
-        if(selecting){ selection.focusR=ri; selection.focusC=width-1; selection.mode='row'; paintSelection(); }
-      });
-      tr.appendChild(rn);
-
+      const rn=document.createElement('th'); rn.className='row-number'; rn.dataset.r=ri; rn.textContent=ri+1;
+      rowHeads[ri]=rn; tr.appendChild(rn);
+      cells[ri]=[];
       columns.forEach((c,ci)=>{
         const td=document.createElement('td');
-        td.contentEditable='false'; td.tabIndex=0; td.textContent=row[ci]??''; td.dataset.r=ri; td.dataset.c=ci;
-        td.addEventListener('pointerdown',e=>{
-          if(e.shiftKey){
-            e.preventDefault(); exitEdit();
-            selection.focusR=ri; selection.focusC=ci; selection.mode='range'; paintSelection();
-            td.focus();
-          }else{
-            selecting=true; exitEdit();
-            setSelection(ri,ci,ri,ci,'cell',true);
-          }
-        });
-        td.addEventListener('pointerenter',()=>{
-          if(selecting){ selection.focusR=ri; selection.focusC=ci; selection.mode='range'; paintSelection(); }
-        });
-        td.addEventListener('dblclick',e=>{e.preventDefault(); saveHistory(); enterEdit(td);});
-        td.addEventListener('input',()=>{data[ri][ci]=td.textContent||''; if(options.onchange) options.onchange();});
-        td.addEventListener('blur',()=>{
-          if(editing && td.classList.contains('editing')){
-            data[ri][ci]=td.textContent||'';
-            td.classList.remove('editing'); td.contentEditable='false'; editing=false;
-            if(options.onchange) options.onchange();
-          }
-        });
-        td.addEventListener('keydown',e=>{
-          const printable=e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey;
-          if(e.key==='Escape'){ e.preventDefault(); exitEdit(); paintSelection(); return; }
-          if(e.key==='F2'){ e.preventDefault(); saveHistory(); enterEdit(td); return; }
-          if(!editing && printable){ e.preventDefault(); saveHistory(); enterEdit(td,e.key); return; }
-          if(e.key==='Delete' || e.key==='Backspace'){
-            if(!editing){ e.preventDefault(); clearSelected(); }
-            return;
-          }
-          if(e.key==='Enter' && !editing){ e.preventDefault(); moveSelection(e.shiftKey?-1:1,0,false); return; }
-          if(e.key==='Tab' && !editing){
-            e.preventDefault();
-            const a=activeCell();
-            let nr=a.r, nc=a.c+(e.shiftKey?-1:1);
-            if(nc<0){ nr=clamp(a.r-1,0,data.length-1); nc=width-1; }
-            else if(nc>=width){ nr=clamp(a.r+1,0,data.length-1); nc=0; }
-            setSelection(nr,nc,nr,nc,'cell',true); return;
-          }
-          const arrows={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
-          if(arrows[e.key] && !editing && !e.ctrlKey && !e.metaKey && !e.altKey){
-            e.preventDefault(); moveSelection(arrows[e.key][0],arrows[e.key][1],e.shiftKey); return;
-          }
-        });
-        td.addEventListener('paste',e=>{
-          const text=(e.clipboardData||window.clipboardData).getData('text');
-          if(text.includes('\t')||text.includes('\n')){
-            e.preventDefault(); exitEdit(); pasteInto(ri,ci,text);
-          }
-        });
-        tr.appendChild(td);
+        td.contentEditable='false'; td.textContent=row[ci]==null?'':row[ci]; td.dataset.r=ri; td.dataset.c=ci;
+        cells[ri][ci]=td; tr.appendChild(td);
       });
       tbody.appendChild(tr);
     });
-    wrap.appendChild(tbody); el.appendChild(wrap); paintSelection();
+    table.appendChild(tbody); el.appendChild(table);
+    el.scrollTop=sTop; el.scrollLeft=sLeft;
+    paintSelection();
   }
 
-  el.addEventListener('pointerup',()=>{selecting=false;});
-  el.addEventListener('pointercancel',()=>{selecting=false;});
-  el.addEventListener('mouseleave',()=>{selecting=false;});
-  el.addEventListener('copy',e=>{
-    if(!el.contains(document.activeElement) && document.activeElement!==el) return;
-    e.preventDefault(); copySelected(false);
-  });
-  el.addEventListener('cut',e=>{
-    if(!el.contains(document.activeElement) && document.activeElement!==el) return;
-    e.preventDefault(); copySelected(true);
-  });
-  el.addEventListener('keydown',e=>{
-    if(!el.contains(e.target) && e.target!==el) return;
-    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'){
-      e.preventDefault(); exitEdit(); setSelection(0,0,data.length-1,width-1,'all',false); focusGrid(); return;
-    }
-    // Header/corner selections keep focus on the grid container, so deletion still works.
-    if((e.key==='Delete'||e.key==='Backspace') && !editing){ e.preventDefault(); clearSelected(); return; }
-    if(e.key==='Escape' && !editing){ e.preventDefault(); exitEdit(); return; }
-    if((e.key==='ArrowUp'||e.key==='ArrowDown'||e.key==='ArrowLeft'||e.key==='ArrowRight') && !editing && !e.ctrlKey && !e.metaKey && !e.altKey){
-      e.preventDefault();
-      const map={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
-      moveSelection(map[e.key][0],map[e.key][1],e.shiftKey); return;
-    }
-  });
-
   render();
-  setSelection(0,0,0,0,'cell',false);
+  setSelection(0,0,0,0,'cell');
   return [{
     getData:()=>data.map(r=>r.slice()),
-    destroy:()=>{exitEdit();el.innerHTML='';el.classList.remove('formeasy-offline-grid');},
+    destroy:()=>{ editCtx=null; if(dragCtl) dragCtl.abort(); life.abort(); el.innerHTML=''; el.classList.remove('formeasy-offline-grid'); },
     download:()=>downloadCSVFile((options.csvFileName||'formeasy')+'.csv',[columns.map(c=>c.title)].concat(data)),
-    selectCell:(c,r)=>setSelection(r,c,r,c,'cell',true),
-    undo:()=>{if(history.length){future.push(snapshot());const prev=history.pop();data.splice(0,data.length,...prev);render();setSelection(0,0,0,0,'cell',true);if(options.onchange)options.onchange();}},
-    redo:()=>{if(future.length){history.push(snapshot());const next=future.pop();data.splice(0,data.length,...next);render();setSelection(0,0,0,0,'cell',true);if(options.onchange)options.onchange();}}
+    selectCell:(c,r)=>{ setSelection(r,c,r,c,'cell'); focusGrid(); },
+    undo, redo
   }];
 }
 
