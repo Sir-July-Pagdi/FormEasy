@@ -670,7 +670,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div class="cl-body" id="changelogBody" tabindex="0" aria-live="polite"></div>
     <div class="cl-foot">
       <span class="cl-source" id="changelogSource"></span>
-      <a class="pill secondary" id="changelogRepoLink" href="https://github.com/Sir-July-Pagdi/FormEasy/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">View on GitHub</a>
     </div>
   </div>
 </div>
@@ -2470,12 +2469,10 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape' && $('csvEdito
 /* ============ Changelog dialog (Form Engine version link) ============ */
 const APP_VERSION = '1.2.1';
 const CHANGELOG_RAW_URL  = 'https://raw.githubusercontent.com/Sir-July-Pagdi/FormEasy/main/CHANGELOG.md';
-const CHANGELOG_REPO_URL = 'https://github.com/Sir-July-Pagdi/FormEasy/blob/main/CHANGELOG.md';
 (function(){
   const modal = $('changelogModal'), body = $('changelogBody'), srcEl = $('changelogSource'), closeBtn = $('changelogClose');
   let returnFocus = null, loadId = 0;
   document.querySelectorAll('[data-app-version]').forEach(n => { n.textContent = 'v' + APP_VERSION; });
-  $('changelogRepoLink').href = CHANGELOG_REPO_URL;
 
   const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const inline = t => esc(t)
@@ -2558,7 +2555,7 @@ const CHANGELOG_REPO_URL = 'https://github.com/Sir-July-Pagdi/FormEasy/blob/main
     if(!modal.classList.contains('open')) return;
     if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); closeChangelog(); return; }
     if(e.key === 'Tab'){                                                       // keep keyboard focus inside the dialog
-      const f = [closeBtn, body, $('changelogRepoLink')];
+      const f = [closeBtn, body];
       const i = f.indexOf(document.activeElement);
       const next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i < 0 || i === f.length - 1 ? 0 : i + 1);
       e.preventDefault(); f[next].focus({ preventScroll:true });
