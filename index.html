@@ -1012,24 +1012,6 @@ const PDFGEN = (function(){
     /* ---------- FRONT: header fields ---------- */
     const F = spec.fields, h = d.header;
 
-    // Static school address: centered directly below the printed "SENIOR HIGH SCHOOL" line.
-// Vertically centered within the address cell. Bookman, 6 pt.
-// The same draw() path is used by every built-in template and every variant.
-const schoolAddressCell = {
-  g11_academic: { top: 88.7, bottom: 97.7 },
-  g11_techpro:  { top: 88.7, bottom: 97.7 },
-  g12_academic: { top: 79.3, bottom: 88.3 },
-  g12_techpro:  { top: 80.35, bottom: 89.35 },
-}[tid];
-
-if(schoolAddressCell != null){
-  const text = clean(reg, 'Macabulos Drive, San Roque, Tarlac City');
-  const size = 6;
-  const x = spec.w / 4 - wid(reg, text, size) / 2;
-  const y = (schoolAddressCell.top + schoolAddressCell.bottom) / 2 + size * 0.34;
-  put(reg, text, x, y, size);
-}
-
     onLine(reg, h.name, F.name, BASE, 5.5);   onLine(reg, h.lrn, F.lrn, BASE, 5.5);
     onLine(reg, h.age, F.age, BASE, 5.5);       onLine(reg, h.sex, F.sex, BASE, 5.5);
     onLine(reg, h.grade, F.grade, BASE, 5.5);   onLine(reg, h.section, F.section, BASE, 5.5);
