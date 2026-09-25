@@ -510,8 +510,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <strong>What FormEasy does</strong>
         Give it your class roster and a grades CSV, and it lays them straight onto the official
         DepEd report-card PDF &mdash; correct fonts, lines and layout, nothing redrawn by hand.
-        SF9 is ready now, with SF10 and more forms on the way. Everything stays in this browser;
-        nothing is uploaded anywhere.
+        SF9 is ready now, with SF10 and more forms on the way. By default, everything stays in this browser. Cloud upload only happens when you sign in and explicitly save a form set.
       </div>
       <div class="sf-grid" id="sfGrid"></div>
       <div class="remarks-panel" id="sampleCard" style="margin-top:22px;">
@@ -3085,5 +3084,176 @@ function renderAll(){
 })();
 
 </script>
+
+
+<!-- =========================================================
+     FormEasy Cloud Sync
+     The UI is integrated here. It expects FormEasyAPI to be
+     provided by the separate cloud API client (api.js).
+     Local IndexedDB saving remains independent.
+     ========================================================= -->
+<section id="fe-cloud-sync" style="margin:18px 0 22px; background:var(--card); border:1.5px solid var(--line); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow);">
+  <div id="fe-auth">
+    <h3 style="margin:0 0 5px; font-size:16px;">Cloud Sync</h3>
+    <p style="margin:0 0 12px; color:var(--ink-soft); font-size:12.5px; line-height:1.45;">Sign in to save and load your FormEasy form sets across devices.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <input type="email" id="fe-email" placeholder="Email" autocomplete="email" style="min-height:38px; flex:1 1 180px; max-width:280px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:var(--input-bg); color:var(--ink);">
+      <input type="password" id="fe-password" placeholder="Password" autocomplete="current-password" style="min-height:38px; flex:1 1 180px; max-width:280px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:var(--input-bg); color:var(--ink);">
+      <button type="button" class="pill" onclick="feLogin()">Log in</button>
+      <button type="button" class="pill secondary" onclick="feSignup()">Sign up</button>
+    </div>
+    <p id="fe-auth-error" style="margin:9px 0 0; color:var(--red); font-size:12px;"></p>
+  </div>
+
+  <div id="fe-user" style="display:none;">
+    <h3 style="margin:0 0 5px; font-size:16px;">Cloud Sync</h3>
+    <p style="margin:0 0 12px; color:var(--ink-soft); font-size:12.5px;">Signed in as <strong id="fe-user-email"></strong></p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button type="button" class="pill secondary" onclick="feLogout()">Log out</button>
+      <button type="button" class="pill" onclick="feSaveSet()">Save form set</button>
+      <select id="fe-set-list" style="min-height:38px; min-width:220px; max-width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--input-bg); color:var(--ink);">
+        <option value="">Select saved form set…</option>
+      </select>
+      <button type="button" class="pill secondary" onclick="feLoadSet()">Load form set</button>
+    </div>
+    <p id="fe-sync-status" style="margin:9px 0 0; color:var(--green); font-size:12px;" role="status" aria-live="polite"></p>
+    <p id="fe-sync-error" style="margin:4px 0 0; color:var(--red); font-size:12px;" role="alert"></p>
+  </div>
+</section>
+
+<script>
+(function(){
+  'use strict';
+
+  function el(id){ return document.getElementById(id); }
+  function authError(msg){ if(el('fe-auth-error')) el('fe-auth-error').textContent = msg || ''; }
+  function syncError(msg){ if(el('fe-sync-error')) el('fe-sync-error').textContent = msg || ''; }
+  function syncStatus(msg){ if(el('fe-sync-status')) el('fe-sync-status').textContent = msg || ''; }
+
+  /* Bridge the cloud API to FormEasy's real application state. */
+  window.getCurrentFormData = function(){
+    if(typeof S === 'undefined') throw new Error('FormEasy state is not available.');
+    return JSON.parse(JSON.stringify(S));
+  };
+
+  window.applyFormData = async function(formData){
+    if(!formData || typeof formData !== 'object') throw new Error('Saved form data is empty or invalid.');
+    if(typeof hydrate !== 'function') throw new Error('FormEasy state loader is not available.');
+
+    if(!hydrate({ state: JSON.parse(JSON.stringify(formData)) })) {
+      throw new Error('This saved form set is not compatible with this version of FormEasy.');
+    }
+
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof save === 'function') save();
+  };
+
+  async function feInit(){
+    const auth = el('fe-auth');
+    const user = el('fe-user');
+    if(!auth || !user) return;
+
+    authError(''); syncError(''); syncStatus('');
+
+    if(typeof FormEasyAPI === 'undefined' || !FormEasyAPI || typeof FormEasyAPI.me !== 'function'){
+      auth.style.display = 'block';
+      user.style.display = 'none';
+      authError('Cloud sync is not configured yet.');
+      return;
+    }
+
+    try{
+      const result = await FormEasyAPI.me();
+      const currentUser = result && result.user;
+      if(!currentUser) throw new Error('Not signed in.');
+      el('fe-user-email').textContent = currentUser.email || '';
+      auth.style.display = 'none';
+      user.style.display = 'block';
+      await feRefreshList();
+    }catch(e){
+      auth.style.display = 'block';
+      user.style.display = 'none';
+    }
+  }
+
+  window.feLogin = async function(){
+    authError('');
+    const email = el('fe-email').value.trim();
+    const password = el('fe-password').value;
+    if(!email || !password){ authError('Enter your email and password.'); return; }
+    try{
+      await FormEasyAPI.login(email, password);
+      await feInit();
+    }catch(e){ authError(e && e.message ? e.message : 'Login failed.'); }
+  };
+
+  window.feSignup = async function(){
+    authError('');
+    const email = el('fe-email').value.trim();
+    const password = el('fe-password').value;
+    if(!email || !password){ authError('Enter your email and password.'); return; }
+    try{
+      await FormEasyAPI.signup(email, password);
+      await feInit();
+    }catch(e){ authError(e && e.message ? e.message : 'Sign-up failed.'); }
+  };
+
+  window.feLogout = async function(){
+    syncError(''); syncStatus('');
+    try{
+      await FormEasyAPI.logout();
+      await feInit();
+    }catch(e){ syncError(e && e.message ? e.message : 'Logout failed.'); }
+  };
+
+  window.feSaveSet = async function(){
+    syncError(''); syncStatus('');
+    try{
+      if(typeof FormEasyAPI === 'undefined' || typeof FormEasyAPI.createSet !== 'function') throw new Error('Cloud API is not configured.');
+      const formData = window.getCurrentFormData();
+      const title = prompt('Name this form set:', 'My FormEasy Set');
+      if(title === null) return;
+      await FormEasyAPI.createSet(title.trim() || 'Untitled Form Set', formData);
+      await feRefreshList();
+      syncStatus('Saved to cloud.');
+    }catch(e){ syncError(e && e.message ? e.message : 'Unable to save form set.'); }
+  };
+
+  window.feLoadSet = async function(){
+    syncError(''); syncStatus('');
+    const id = el('fe-set-list').value;
+    if(!id){ syncError('Select a saved form set first.'); return; }
+    try{
+      const result = await FormEasyAPI.getSet(id);
+      if(!result || !result.set) throw new Error('The saved form set could not be found.');
+      await window.applyFormData(result.set.form_data);
+      syncStatus('Loaded from cloud.');
+    }catch(e){ syncError(e && e.message ? e.message : 'Unable to load form set.'); }
+  };
+
+  async function feRefreshList(){
+    const select = el('fe-set-list');
+    if(!select) return;
+    select.innerHTML = '<option value="">Select saved form set…</option>';
+    if(typeof FormEasyAPI === 'undefined' || typeof FormEasyAPI.listSets !== 'function') return;
+    const result = await FormEasyAPI.listSets();
+    const sets = result && Array.isArray(result.sets) ? result.sets : [];
+    sets.forEach(function(set){
+      const option = document.createElement('option');
+      option.value = set.id;
+      option.textContent = set.title || 'Untitled Form Set';
+      select.appendChild(option);
+    });
+  }
+
+  /* Run after the document parser has completed, so S/hydrate/renderAll exist. */
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', feInit, { once:true });
+  }else{
+    feInit();
+  }
+})();
+</script>
+
 </body>
 </html>
