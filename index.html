@@ -3128,6 +3128,7 @@ function renderAll(){
 (function(){
   'use strict';
 let currentSetId = null;   // tracks which cloud set is currently open
+let currentSetTitle = '';  // tracks the title of the loaded set
 
   function el(id){ return document.getElementById(id); }
   function authError(msg){ if(el('fe-auth-error')) el('fe-auth-error').textContent = msg || ''; }
@@ -3218,13 +3219,17 @@ let currentSetId = null;   // tracks which cloud set is currently open
     try{
       if(typeof FormEasyAPI === 'undefined' || typeof FormEasyAPI.createSet !== 'function') throw new Error('Cloud API is not configured.');
       const formData = window.getCurrentFormData();
-      const title = prompt('Name this form set:', 'My FormEasy Set');
-      if(title === null) return;
       if(currentSetId){
-        await FormEasyAPI.updateSet(currentSetId, { title: title.trim() || 'Untitled Form Set', formData });
+        // Updating the loaded set — no title prompt, keep existing title
+        await FormEasyAPI.updateSet(currentSetId, { title: currentSetTitle || 'Untitled Form Set', formData });
         syncStatus('Updated in cloud.');
       } else {
-        await FormEasyAPI.createSet(title.trim() || 'Untitled Form Set', formData);
+        // Creating a new set — ask for a title once
+        const title = prompt('Name this form set:', 'My FormEasy Set');
+        if(title === null) return;
+        const result = await FormEasyAPI.createSet(title.trim() || 'Untitled Form Set', formData);
+        currentSetId = result.id;
+        currentSetTitle = result.title || title.trim() || 'Untitled Form Set';
         syncStatus('Saved to cloud.');
       }
       await feRefreshList();
@@ -3243,6 +3248,7 @@ let currentSetId = null;   // tracks which cloud set is currently open
       if(typeof data === 'string'){ data = JSON.parse(data); }   // ← fixes cross-device load
       await window.applyFormData(data);
       currentSetId = result.set.id;
+currentSetTitle = result.set.title || '';
       syncStatus('Loaded from cloud.');
     }catch(e){ syncError(e && e.message ? e.message : 'Unable to load form set.'); }
 };
