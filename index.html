@@ -3126,6 +3126,7 @@ function renderAll(){
 <script>
 (function(){
   'use strict';
+let currentSetId = null;   // tracks which cloud set is currently open
 
   function el(id){ return document.getElementById(id); }
   function authError(msg){ if(el('fe-auth-error')) el('fe-auth-error').textContent = msg || ''; }
@@ -3139,6 +3140,9 @@ function renderAll(){
   };
 
   window.applyFormData = async function(formData){
+    if(typeof formData === 'string'){
+      try { formData = JSON.parse(formData); } catch(e){ throw new Error('Saved form data is empty or invalid.'); }
+    }
     if(!formData || typeof formData !== 'object') throw new Error('Saved form data is empty or invalid.');
     if(typeof hydrate !== 'function') throw new Error('FormEasy state loader is not available.');
 
@@ -3215,11 +3219,17 @@ function renderAll(){
       const formData = window.getCurrentFormData();
       const title = prompt('Name this form set:', 'My FormEasy Set');
       if(title === null) return;
-      await FormEasyAPI.createSet(title.trim() || 'Untitled Form Set', formData);
+      if(currentSetId){
+        await FormEasyAPI.updateSet(currentSetId, { title: title.trim() || 'Untitled Form Set', formData });
+        syncStatus('Updated in cloud.');
+      } else {
+        await FormEasyAPI.createSet(title.trim() || 'Untitled Form Set', formData);
+        syncStatus('Saved to cloud.');
+      }
       await feRefreshList();
-      syncStatus('Saved to cloud.');
     }catch(e){ syncError(e && e.message ? e.message : 'Unable to save form set.'); }
-  };
+};
+
 
   window.feLoadSet = async function(){
     syncError(''); syncStatus('');
@@ -3228,10 +3238,14 @@ function renderAll(){
     try{
       const result = await FormEasyAPI.getSet(id);
       if(!result || !result.set) throw new Error('The saved form set could not be found.');
-      await window.applyFormData(result.set.form_data);
+      let data = result.set.form_data;
+      if(typeof data === 'string'){ data = JSON.parse(data); }   // ← fixes cross-device load
+      await window.applyFormData(data);
+      currentSetId = result.set.id;
       syncStatus('Loaded from cloud.');
     }catch(e){ syncError(e && e.message ? e.message : 'Unable to load form set.'); }
-  };
+};
+
 
   async function feRefreshList(){
     const select = el('fe-set-list');
