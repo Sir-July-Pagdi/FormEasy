@@ -287,9 +287,16 @@ export default {
       if (method === 'DELETE') return handleDeleteSet(db, request, setId);
     }
 
-    // --- Static assets (your HTML/CSS/JS) ---
-    // Pass through to the static asset handler for non-API routes
-    return env.ASSETS.fetch(request);
+        // --- Static assets (your HTML/CSS/JS) ---
+    // Pass through to the static asset handler, then add no-cache header
+    const assetResponse = await env.ASSETS.fetch(request);
+    const newHeaders = new Headers(assetResponse.headers);
+    newHeaders.set('Cache-Control', 'no-cache');
+    return new Response(assetResponse.body, {
+      status: assetResponse.status,
+      statusText: assetResponse.statusText,
+      headers: newHeaders,
+    });
   },
 };
   
