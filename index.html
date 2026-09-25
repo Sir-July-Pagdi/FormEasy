@@ -2527,7 +2527,7 @@ const CHANGELOG_RAW_URL  = 'https://raw.githubusercontent.com/Sir-July-Pagdi/For
       if(!/^##\s*v?\d+\.\d+\.\d+/m.test(text) || text.length > 300000) throw new Error('Unexpected changelog format');
       if(myId !== loadId) return;                                              // dialog was closed/reopened meanwhile
       const top = body.scrollTop;
-      show(text, 'Loaded from the FormEasy repository on GitHub.');
+      show(text, 'Loaded from the FormEasy server.');
       body.scrollTop = top;
     }catch(err){
       if(myId === loadId) srcEl.textContent = 'Offline copy bundled with this version. Connect to the internet to see the latest.';
