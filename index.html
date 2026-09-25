@@ -3115,6 +3115,8 @@ function renderAll(){
         <option value="">Select saved form set…</option>
       </select>
       <button type="button" class="pill secondary" onclick="feLoadSet()">Load form set</button>
+      <button type="button" class="pill secondary" onclick="feLoadSet()">Load form set</button>
+<button type="button" class="pill secondary" onclick="feDeleteSet()" style="color:var(--red);">Delete</button>
     </div>
     <p id="fe-sync-status" style="margin:9px 0 0; color:var(--green); font-size:12px;" role="status" aria-live="polite"></p>
     <p id="fe-sync-error" style="margin:4px 0 0; color:var(--red); font-size:12px;" role="alert"></p>
@@ -3246,6 +3248,19 @@ let currentSetId = null;   // tracks which cloud set is currently open
     }catch(e){ syncError(e && e.message ? e.message : 'Unable to load form set.'); }
 };
 
+window.feDeleteSet = async function(){
+    syncError(''); syncStatus('');
+    const id = el('fe-set-list').value;
+    if(!id){ syncError('Select a saved form set first.'); return; }
+    const confirmDelete = confirm('Delete this form set? This cannot be undone.');
+    if(!confirmDelete) return;
+    try{
+      await FormEasyAPI.deleteSet(id);
+      if(currentSetId == id) currentSetId = null;
+      await feRefreshList();
+      syncStatus('Deleted from cloud.');
+    }catch(e){ syncError(e && e.message ? e.message : 'Unable to delete form set.'); }
+};
 
   async function feRefreshList(){
     const select = el('fe-set-list');
