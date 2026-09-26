@@ -6,8 +6,9 @@ FormEasy turns a class roster and a grades CSV into ready-to-print DepEd report 
 correct fonts, lines and layout, matching the official form exactly. SF9 is supported today;
 SF10 and other DepEd forms are on the way.
 
-Everything runs in the browser. Nothing is uploaded to a server — your roster, grades and
-remarks are kept on your own device (`localStorage`) until you clear them.
+Everything runs in the browser. Your roster, grades and remarks are kept on your own device
+(`localStorage`) by default. Signing in to sync your forms to the cloud is optional — see
+"Account & Cloud Sync" below.
 
 ## Using it
 
@@ -81,11 +82,28 @@ Added an in-app Excel-style CSV editor for Roster, Grades Summary, and Attendanc
 - Import and download CSV
 - Transfer edited data directly back into FormEasy.
 
+## Account & Cloud Sync
+
+Signing in is optional. Without an account, FormEasy behaves exactly as before: everything
+stays in `localStorage` on your device.
+
+Signing in with an email and password adds:
+
+- **Save form set** — saves your current roster, grades, attendance and remarks to your
+  account under a name you choose.
+- **Load form set** — pulls a previously saved set back into FormEasy from a list of your
+  saved sets.
+- **Log out** — ends the session; your local, on-device data is untouched either way.
+
+Saved sets are tied to your account and are only reachable by signing back in — they're
+not shared with anyone else, and they don't replace the local copy on your device.
+
 ## Development notes
 
 - `config.js` — template metadata and the cell bindings measured from each SF9 workbook.
 - `pdfgen.js` — loads a template's PDF + JSON spec and draws grades onto it with pdf-lib.
 - `app.js` — UI state, CSV parsing, the Subjects & Electives step (including dynamic elective
   add/remove), and wiring the above two together.
+- `api.js` — account authentication and cloud save/load for form sets.
 
 Changes are tracked in [CHANGELOG.md](CHANGELOG.md).

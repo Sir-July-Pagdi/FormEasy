@@ -2,6 +2,18 @@
 
 All notable changes to FormEasy (Form Engine) are listed here, newest first.
 
+## v1.3.0
+
+**Account & Cloud Sync**
+- Added optional sign in / sign up with email and password.
+- Added **Save form set**, which saves your current roster, grades, attendance and remarks
+  to your account under a name you choose.
+- Added **Load form set**, which lists your saved sets and loads one back into FormEasy.
+- Added a logged-in panel showing the signed-in email, with a **Log out** control.
+- Sync errors (failed login, failed save/load) are shown inline instead of failing silently.
+- FormEasy remains fully usable without an account: skipping sign-in keeps everything in
+  `localStorage` on-device, exactly as before.
+
 ## v1.2.1
 
 **CSV Editor**
